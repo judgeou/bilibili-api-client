@@ -1,0 +1,13 @@
+{
+  "ts-node": {
+    "compilerOptions": {
+      "module": "CommonJS",
+      "target": "es2020"
+    }
+  },
+  "compilerOptions": {
+    "module": "es2022",
+    "target": "es2020",
+    "moduleResolution": "node",
+  },
+}
