@@ -1,6 +1,7 @@
 import { AxiosInstance } from 'axios'
 import * as fs from 'fs-extra'
 import * as path from 'path'
+import * as open from 'open'
 
 interface getLoginUrlResponse {
   code: number,
@@ -122,7 +123,8 @@ async function downloadVideo (api: AxiosInstance, playurlInfo: PlayurlData, file
   
     for (const { url, order, size } of durl) {
       const filepath = path.resolve('./download', `${filename.replace(/\//g, '_')}_${order}.flv`)
-      const writer = fs.createWriteStream(filepath)
+      await fs.remove(filepath)
+      const writer = fs.createWriteStream(filepath, { flags: 'a' })
       
       writer.on('open', async () => {
         const res1 = await api.get(url, { responseType: 'stream', onDownloadProgress: progressEvent => {
@@ -130,12 +132,27 @@ async function downloadVideo (api: AxiosInstance, playurlInfo: PlayurlData, file
         }})
 
         let written = 0
+        let writtenPerSecond = 0
+        let checkTime = new Date().getTime()
+        let openedPlayer = false
 
         res1.data.on('data', chunk => {
-          writer.write(chunk, () => {
-            written += chunk.length
-            console.log(`${(written / size * 100).toFixed(2)}%\r`)
-          })
+          writer.write(chunk)
+          written += chunk.length
+          writtenPerSecond += chunk.length
+
+          const now = new Date().getTime()
+
+          if (now - checkTime > 1000) {
+            checkTime = now
+            process.stdout.write(`${(written / size * 100).toFixed(2)}% ${(writtenPerSecond / 1024 / 1024).toFixed(2)} MB/S \r`)
+            writtenPerSecond = 0
+          }
+
+          if (openedPlayer === false && written > 1024 * 1024) {
+            openedPlayer = true
+            // open(filepath)
+          }
         })
 
         res1.data.on('close', () => {
