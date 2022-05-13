@@ -19,7 +19,8 @@
       "name": "Launch",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev-debug"],
-      "sourceMaps": true
+      "sourceMaps": true,
+      "console": "externalTerminal"
     }
   ]
 }

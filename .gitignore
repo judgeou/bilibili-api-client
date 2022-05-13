@@ -1,3 +1,4 @@
 node_modules
 .cookie.json
 login-qrcode.png
+.DS_Store

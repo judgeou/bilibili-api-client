@@ -4,8 +4,8 @@ import axios, { AxiosInstance } from 'axios'
 import * as QRCode from 'qrcode'
 import { buildFormData, buildPostParam, questionAsync, showQRCodeConsole, showQRCodeFile, wait } from './toolkit'
 import {
-  getLoginInfoResponse, getLoginUrlResponse, navResponse,
-  api_getLoginUrl, api_getLoginInfo, api_nav, request_nav, request_view
+  getLoginInfoResponse, getLoginUrlResponse, NavResponse,
+  api_getLoginUrl, api_getLoginInfo, api_nav, request_nav, request_view, request_playurl, downloadVideo
 } from './bilibili-api'
 
 
@@ -119,8 +119,17 @@ async function main () {
       if (pages?.length) {
         const cid = pages[0].cid
         const title = data3.title
+        console.log(`视频标题: ${title}`)
 
-        console.log(cid, title)
+        const data4 = await request_playurl(api, { bvid, cid})
+        console.log(data4.support_formats)
+
+        const downloadResult = await downloadVideo(http, data4, title)
+        if (downloadResult) {
+          console.error(downloadResult)
+        } else {
+          console.log(`下载完成 ${title}`)
+        }
       }
     }
   }
