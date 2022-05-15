@@ -2,7 +2,7 @@ import * as fs from 'fs-extra'
 import * as readline from 'readline'
 import axios, { AxiosInstance } from 'axios'
 import * as QRCode from 'qrcode'
-import { buildFormData, buildPostParam, questionAsync, showQRCodeConsole, showQRCodeFile, wait } from './toolkit'
+import { buildFormData, buildPostParam, printOneLine, questionAsync, showQRCodeConsole, showQRCodeFile, wait } from './toolkit'
 import {
   getLoginInfoResponse, getLoginUrlResponse, NavResponse,
   api_getLoginUrl, api_getLoginInfo, api_nav, request_nav, request_view, request_playurl, downloadVideo
@@ -33,6 +33,8 @@ http.interceptors.response.use(res => {
       const value = cookie.split('=')[1]
       cookieMap.set(key, value)
     }
+
+    saveCookie()
   }
 
   return res
@@ -59,7 +61,7 @@ async function getAuthedApi () {
   const res1 = await http.get(api_getLoginUrl)
   const data1 = res1.data as getLoginUrlResponse
   if (data1.code === 0) {
-    await showQRCodeFile(data1.data.url)
+    await showQRCodeConsole(data1.data.url)
 
     for (let data2: getLoginInfoResponse; ; ) {
       const res2 = await http.post(api_getLoginInfo, buildPostParam({
@@ -70,11 +72,12 @@ async function getAuthedApi () {
       if (data2.data === -1 || data2.data === -2) { // -1：密钥错误 -2：密钥超时
         console.log(data2.message)
         return null
-      } else if (data2.data === -4 || data2.data === -5) { // -4：未扫描 -5 未确认
-        console.log(data2.message)
+      } else if (data2.data === -4) { // -4：未扫描 -5 未确认
+        printOneLine('等待扫描')
+      } else if (data2.data === -5) {
+        printOneLine('等待确认')
       } else { // obj: 成功
         console.log(data2.message)
-        await saveCookie()
         return http
       }
 
@@ -104,10 +107,18 @@ async function loadCookie () {
 }
 
 async function main () {
-  const api = await getAuthedApi()
+  let api = await getAuthedApi()
 
   if (api) {
-    const data2 = await request_nav(api)
+    let data2
+    try { 
+      data2 = await request_nav(api)
+    } catch {
+      console.log('cookie 已失效，重新获取')
+      await fs.remove('.cookie.json')
+      api = await getAuthedApi()
+      data2 = await request_nav(api)
+    }
     
     if (data2.data.isLogin) {
       console.log(`欢迎这个B友 ${data2.data.uname}! 等级: ${data2.data.level_info.current_level} 硬币: ${data2.data.money}`)
@@ -121,7 +132,7 @@ async function main () {
         const title = data3.title
         console.log(`视频标题: ${title}`)
 
-        const data4 = await request_playurl(api, { bvid, cid})
+        const data4 = await request_playurl(api, { bvid, cid, qn: 120, fnval: 0 })
         console.log(data4.support_formats)
 
         const downloadResult = await downloadVideo(http, data4, title)

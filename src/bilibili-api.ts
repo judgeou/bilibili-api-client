@@ -2,6 +2,7 @@ import { AxiosInstance } from 'axios'
 import * as fs from 'fs-extra'
 import * as path from 'path'
 import * as open from 'open'
+import { printOneLine } from './toolkit'
 
 interface getLoginUrlResponse {
   code: number,
@@ -84,7 +85,7 @@ async function request_nav (api: AxiosInstance) {
   if (data2.code === 0) {
     return data2
   } else {
-    throw Error(data2.message)
+    throw data2
   }
 }
 
@@ -106,7 +107,7 @@ async function request_playurl (api: AxiosInstance, param: {
   qn?: number,
   fnval?: number
 }) {
-  const params = { ...param, qn: 32, fnval: 0, fnver: 0, fourk: 1 }
+  const params = Object.assign({ qn: 32, fnval: 0, fnver: 0, fourk: 1 }, param)
   const res1 = await api.get(api_playurl, { params })
   const data1 = res1.data as PlayurlResponse
 
@@ -127,9 +128,7 @@ async function downloadVideo (api: AxiosInstance, playurlInfo: PlayurlData, file
       const writer = fs.createWriteStream(filepath, { flags: 'a' })
       
       writer.on('open', async () => {
-        const res1 = await api.get(url, { responseType: 'stream', onDownloadProgress: progressEvent => {
-          console.log(progressEvent)
-        }})
+        const res1 = await api.get(url, { responseType: 'stream', })
 
         let written = 0
         let writtenPerSecond = 0
@@ -145,7 +144,7 @@ async function downloadVideo (api: AxiosInstance, playurlInfo: PlayurlData, file
 
           if (now - checkTime > 1000) {
             checkTime = now
-            process.stdout.write(`${(written / size * 100).toFixed(2)}% ${(writtenPerSecond / 1024 / 1024).toFixed(2)} MB/S \r`)
+            printOneLine(`${(written / size * 100).toFixed(2)}% ${(writtenPerSecond / 1024 / 1024).toFixed(2)} MB/S \r`)
             writtenPerSecond = 0
           }
 

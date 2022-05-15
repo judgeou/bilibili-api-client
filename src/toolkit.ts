@@ -54,10 +54,15 @@ async function questionAsync (q: string): Promise<string> {
   })
 }
 
+function printOneLine (str: string) {
+  process.stdout.write(str + '\r')
+}
+
 export {
   buildFormData,
   buildPostParam,
   openQRCodeBrowser,
+  printOneLine,
   questionAsync,
   showQRCodeConsole,
   showQRCodeFile,
