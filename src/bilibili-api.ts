@@ -128,9 +128,10 @@ async function downloadVideo (api: AxiosInstance, playurlInfo: PlayurlData, file
   for (const { url, order, size } of durl) {
     const filepath = path.resolve('./download', `${filename.replace(/\//g, '_')}_${order}.flv`)
     await fs.remove(filepath)
-    const writer = fs.createWriteStream(filepath, { flags: 'a' })
+    fs.closeSync(fs.openSync(filepath, 'w'));
     
     const res1 = await api.get(url, { responseType: 'stream', })
+    const writer = fs.createWriteStream(filepath, { flags: 'a' })
 
     let state = -1
     pipeline(res1.data, writer).then(() => {
