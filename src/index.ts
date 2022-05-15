@@ -133,14 +133,9 @@ async function main () {
         console.log(`视频标题: ${title}`)
 
         const data4 = await request_playurl(api, { bvid, cid, qn: 120, fnval: 0 })
-        console.log(data4.support_formats)
 
-        const downloadResult = await downloadVideo(http, data4, title)
-        if (downloadResult) {
-          console.error(downloadResult)
-        } else {
-          console.log(`下载完成 ${title}`)
-        }
+        await downloadVideo(http, data4, title)
+        console.log(`下载完成 ${title}`)
       }
     }
   }

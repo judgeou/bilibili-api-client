@@ -2,7 +2,11 @@ import { AxiosInstance } from 'axios'
 import * as fs from 'fs-extra'
 import * as path from 'path'
 import * as open from 'open'
-import { printOneLine } from './toolkit'
+import * as stream from 'stream'
+import * as util from 'util'
+import { printOneLine, wait } from './toolkit'
+
+const pipeline = util.promisify(stream.pipeline);
 
 interface getLoginUrlResponse {
   code: number,
@@ -119,50 +123,34 @@ async function request_playurl (api: AxiosInstance, param: {
 }
 
 async function downloadVideo (api: AxiosInstance, playurlInfo: PlayurlData, filename: string) {
-  return new Promise(async (resolve, reject) => {
-    const { durl } = playurlInfo
+  const { durl } = playurlInfo
   
-    for (const { url, order, size } of durl) {
-      const filepath = path.resolve('./download', `${filename.replace(/\//g, '_')}_${order}.flv`)
-      await fs.remove(filepath)
-      const writer = fs.createWriteStream(filepath, { flags: 'a' })
-      
-      writer.on('open', async () => {
-        const res1 = await api.get(url, { responseType: 'stream', })
+  for (const { url, order, size } of durl) {
+    const filepath = path.resolve('./download', `${filename.replace(/\//g, '_')}_${order}.flv`)
+    await fs.remove(filepath)
+    const writer = fs.createWriteStream(filepath, { flags: 'a' })
+    
+    const res1 = await api.get(url, { responseType: 'stream', })
 
-        let written = 0
-        let writtenPerSecond = 0
-        let checkTime = new Date().getTime()
-        let openedPlayer = false
+    let state = -1
+    pipeline(res1.data, writer).then(() => {
+      state = 0
+    }).catch(err => {
+      state = err
+    })
 
-        res1.data.on('data', chunk => {
-          writer.write(chunk)
-          written += chunk.length
-          writtenPerSecond += chunk.length
+    for (let written = 0; written < size && state === -1;) {
+      const stat = await fs.stat(filepath)
+      const writtenPerSecond = (stat.size - written)
+      written = stat.size
 
-          const now = new Date().getTime()
+      printOneLine(`${(written / size * 100).toFixed(2)}% ${(writtenPerSecond / 1024 / 1024).toFixed(2)} MB/S \r`)
 
-          if (now - checkTime > 1000) {
-            checkTime = now
-            printOneLine(`${(written / size * 100).toFixed(2)}% ${(writtenPerSecond / 1024 / 1024).toFixed(2)} MB/S \r`)
-            writtenPerSecond = 0
-          }
-
-          if (openedPlayer === false && written > 1024 * 1024) {
-            openedPlayer = true
-            // open(filepath)
-          }
-        })
-
-        res1.data.on('close', () => {
-          writer.close()
-          resolve(null)
-        })
-      })
-
-      break
+      await wait(1000)
     }
-  })
+
+    return state
+  }
 }
 
 export {
