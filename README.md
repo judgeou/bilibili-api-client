@@ -4,6 +4,8 @@
 
 需要 node >= 16
 
+推荐使用 [pnpm](https://pnpm.io/zh/) 代替 npm
+
 ```sh
 npm install
 ```
@@ -19,5 +21,7 @@ npm run start
 ![](./images/2022-05-16-10-12-54.png)
 
 ![](./images/2022-05-16-10-13-54.png)
+
+![](./images/2022-05-16-11-23-35.png)
 
 ![](./images/2022-05-16-10-14-24.png)

@@ -1,13 +1,8 @@
+import axios from 'axios'
 import * as fs from 'fs-extra'
-import * as readline from 'readline'
-import axios, { AxiosInstance } from 'axios'
-import * as QRCode from 'qrcode'
-import { buildFormData, buildPostParam, printOneLine, questionAsync, showQRCodeConsole, showQRCodeFile, wait } from './toolkit'
-import {
-  getLoginInfoResponse, getLoginUrlResponse, NavResponse,
-  api_getLoginUrl, api_getLoginInfo, api_nav, request_nav, request_view, request_playurl, downloadVideo
-} from './bilibili-api'
-
+import * as inquirer from 'inquirer'
+import { api_getLoginInfo, api_getLoginUrl, downloadVideo, getLoginInfoResponse, getLoginUrlResponse, request_nav, request_playurl, request_view } from './bilibili-api'
+import { buildPostParam, printOneLine, questionAsync, showQRCodeConsole, wait } from './toolkit'
 
 const referer = "https://www.bilibili.com/"
 const userAgent = `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.54 Safari/537.36 Edg/101.0.1210.39`
@@ -132,7 +127,26 @@ async function main () {
         const title = data3.title
         console.log(`视频标题: ${title}`)
 
-        const data4 = await request_playurl(api, { bvid, cid, qn: 120, fnval: 0 })
+        let data4 = await request_playurl(api, { bvid, cid, qn: 120, fnval: 0 })
+        
+        const answerQuality = await inquirer.prompt(
+          {
+            type: 'rawlist',
+            name: 'quality',
+            message: '请选择视频质量',
+            choices: data4.accept_description.map((value, index) => {
+              return {
+                key: index.toString(),
+                name: value,
+                value: data4.accept_quality[index]
+              }
+            })
+          }
+        )
+
+        if (answerQuality.quality !== data4.quality) {
+          data4 = await request_playurl(api, { bvid, cid, qn: answerQuality.quality, fnval: 0 })
+        }
 
         await downloadVideo(http, data4, title)
         console.log(`下载完成 ${title}`)
