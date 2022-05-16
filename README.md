@@ -2,6 +2,8 @@
 
 ## 使用
 
+需要 node >= 16
+
 ```sh
 npm install
 ```
