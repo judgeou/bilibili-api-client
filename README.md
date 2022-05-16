@@ -2,7 +2,7 @@
 
 ## 使用
 
-需要 node >= 16
+需要 [node](https://nodejs.org/) >= 16
 
 推荐使用 [pnpm](https://pnpm.io/zh/) 代替 npm
 

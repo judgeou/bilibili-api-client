@@ -3,6 +3,7 @@ import * as FormData from 'form-data'
 import * as QRCode from 'qrcode'
 import * as open from 'open'
 import * as readline from 'readline'
+import { spawn } from 'child_process'
 
 function buildFormData (obj) {
   const formData = new FormData()
@@ -58,6 +59,24 @@ function printOneLine (str: string) {
   process.stdout.write(str + '\r')
 }
 
+async function isFFMPEGInstalled () {
+  return new Promise((resolve) => {
+    const program = spawn('ffmpeg', ['-version'])
+    program.stdout.on('data', data => {
+      resolve(true)
+    })
+
+    program.stderr.on('data', data => {
+      resolve(false)
+    })
+
+    program.on('error', err => {
+      resolve(false)
+    })
+  })
+
+}
+
 export {
   buildFormData,
   buildPostParam,
@@ -66,5 +85,6 @@ export {
   questionAsync,
   showQRCodeConsole,
   showQRCodeFile,
-  wait
+  wait,
+  isFFMPEGInstalled
 }

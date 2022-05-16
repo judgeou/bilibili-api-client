@@ -2,7 +2,7 @@ import axios from 'axios'
 import * as fs from 'fs-extra'
 import * as inquirer from 'inquirer'
 import { api_getLoginInfo, api_getLoginUrl, downloadVideo, getLoginInfoResponse, getLoginUrlResponse, request_nav, request_playurl, request_view } from './bilibili-api'
-import { buildPostParam, printOneLine, questionAsync, showQRCodeConsole, wait } from './toolkit'
+import { buildPostParam, printOneLine, questionAsync, showQRCodeConsole, wait, isFFMPEGInstalled } from './toolkit'
 
 const referer = "https://www.bilibili.com/"
 const userAgent = `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.54 Safari/537.36 Edg/101.0.1210.39`
@@ -127,7 +127,22 @@ async function main () {
         const title = data3.title
         console.log(`视频标题: ${title}`)
 
-        let data4 = await request_playurl(api, { bvid, cid, qn: 120, fnval: 0 })
+        const isFFMPEGinstalled = await isFFMPEGInstalled()
+        let fnval: number
+        
+        if (isFFMPEGinstalled) {
+          const answerNewType = await inquirer.prompt({
+            type: 'confirm',
+            name: 'newType',
+            message: 'ffmpeg 已安装，是否使用新型下载方式?（支持 hevc，av1 编码）'
+          })
+          fnval = answerNewType.newType ? 4048 : 0
+        } else {
+          console.log('ffmpeg 未安装，使用普通下载方式')
+          fnval = 0
+        }
+
+        let data4 = await request_playurl(api, { bvid, cid, qn: 120, fnval })
         
         const answerQuality = await inquirer.prompt(
           {
