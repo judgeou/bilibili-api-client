@@ -118,7 +118,7 @@ async function main () {
     if (data2.data.isLogin) {
       console.log(`欢迎这个B友 ${data2.data.uname}! 等级: ${data2.data.level_info.current_level} 硬币: ${data2.data.money}`)
 
-      const bvid = await questionAsync('请输入视频的bvid: '); // https://www.bilibili.com/video/BV18q4y1x7PH
+      const bvid = await questionAsync('请输入视频的bvid: ');
 
       const data3 = await request_view(api, { bvid })
       const { pages } = data3
@@ -160,7 +160,7 @@ async function main () {
         )
 
         if (answerQuality.quality !== data4.quality) {
-          data4 = await request_playurl(api, { bvid, cid, qn: answerQuality.quality, fnval: 0 })
+          data4 = await request_playurl(api, { bvid, cid, qn: answerQuality.quality, fnval })
         }
 
         const ouputFilepath = await downloadVideo(http, data4, title)

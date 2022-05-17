@@ -29,3 +29,9 @@ npm run start
 ### dash 下载方式，速度更快，支持不同编码
 
 ![](./images/2022-05-17-10-27-15.png)
+
+## 测试视频
+
+普通：https://www.bilibili.com/video/BV18q4y1x7PH
+番剧：https://www.bilibili.com/bangumi/play/ep508406
+8k：https://www.bilibili.com/video/BV1yb4y1J7wR https://www.bilibili.com/video/BV1qM4y1w716
