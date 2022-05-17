@@ -5,7 +5,7 @@ import * as open from 'open'
 import * as stream from 'stream'
 import * as util from 'util'
 import * as inquirer from 'inquirer'
-import { printOneLine, wait } from './toolkit'
+import { mergeMedia, printOneLine, wait } from './toolkit'
 
 const pipeline = util.promisify(stream.pipeline);
 
@@ -224,7 +224,7 @@ async function downloadVideoDash (api: AxiosInstance, dash: DashData, filename: 
       const writtenPerSecond = (stat.size - written)
       written = stat.size
 
-      printOneLine(`${(written / size * 100).toFixed(2)}% ${(writtenPerSecond / 1024 / 1024).toFixed(2)} MB/S \r`)
+      printOneLine(`downloading ${filepath} ${(written / size * 100).toFixed(2)}% ${(writtenPerSecond / 1024 / 1024).toFixed(2)} MB/S \r`)
 
       await wait(1000)
     }
@@ -236,7 +236,14 @@ async function downloadVideoDash (api: AxiosInstance, dash: DashData, filename: 
     }
   }
 
-  console.log(downloadVideosFilepath, downloadAudiosFilepath)
+  const outputFilepath = path.resolve('./download', `${filename.replace(/\//g, '_')}_${codec}.mp4`)
+  await mergeMedia([...downloadVideosFilepath, ...downloadAudiosFilepath], outputFilepath)
+
+  for (const filepath of [...downloadVideosFilepath, ...downloadAudiosFilepath]) {
+    await fs.remove(filepath)
+  }
+
+  return outputFilepath
 }
 
 async function downloadVideoDurl (api: AxiosInstance, durl: DurlData[], filename: string) {
@@ -265,7 +272,7 @@ async function downloadVideoDurl (api: AxiosInstance, durl: DurlData[], filename
       await wait(1000)
     }
 
-    return state
+    return filepath
   }
 }
 

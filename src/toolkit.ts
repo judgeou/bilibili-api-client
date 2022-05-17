@@ -74,12 +74,36 @@ async function isFFMPEGInstalled () {
       resolve(false)
     })
   })
+}
 
+async function mergeMedia (mediaFilepaths: string[], outputFilepath: string) {
+  return new Promise((resolve, reject) => {
+    let args = []
+    for (const mediaFilepath of mediaFilepaths) {
+      args.push('-i')
+      args.push(mediaFilepath)
+    }
+    args = [...args, '-c', 'copy', '-y', outputFilepath]
+    const ffmpeg = spawn('ffmpeg', args)
+  
+    ffmpeg.stdout.pipe(process.stdout)
+  
+    ffmpeg.stderr.pipe(process.stderr)
+  
+    ffmpeg.on('close', code => {
+      if (code === 0) {
+        resolve(true)
+      } else {
+        reject(false)
+      }
+    })
+  })
 }
 
 export {
   buildFormData,
   buildPostParam,
+  mergeMedia,
   openQRCodeBrowser,
   printOneLine,
   questionAsync,

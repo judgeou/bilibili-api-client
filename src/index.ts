@@ -134,7 +134,7 @@ async function main () {
           const answerNewType = await inquirer.prompt({
             type: 'confirm',
             name: 'newType',
-            message: 'ffmpeg 已安装，是否使用新型下载方式?（支持 hevc，av1 编码）'
+            message: 'ffmpeg 已安装，是否使用新型下载方式?（支持 hevc，av1 编码），下载速度更快'
           })
           fnval = answerNewType.newType ? 4048 : 0
         } else {
@@ -163,8 +163,8 @@ async function main () {
           data4 = await request_playurl(api, { bvid, cid, qn: answerQuality.quality, fnval: 0 })
         }
 
-        await downloadVideo(http, data4, title)
-        console.log(`下载完成 ${title}`)
+        const ouputFilepath = await downloadVideo(http, data4, title)
+        console.log(`下载完成 ${ouputFilepath}`)
       }
     }
   }
