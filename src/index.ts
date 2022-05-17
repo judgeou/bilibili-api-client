@@ -1,7 +1,7 @@
 import axios from 'axios'
 import * as fs from 'fs-extra'
 import * as inquirer from 'inquirer'
-import { api_getLoginInfo, api_getLoginUrl, downloadVideo, getLoginInfoResponse, getLoginUrlResponse, request_nav, request_playurl, request_view } from './bilibili-api'
+import { api_getLoginInfo, api_getLoginUrl, askCodecId, bilibiliUrlToBvid, downloadVideo, getFnval, getLoginInfoResponse, getLoginUrlResponse, getVideoList, isbvid, request_nav, request_playurl, request_view } from './bilibili-api'
 import { buildPostParam, printOneLine, questionAsync, showQRCodeConsole, wait, isFFMPEGInstalled } from './toolkit'
 
 const referer = "https://www.bilibili.com/"
@@ -118,53 +118,49 @@ async function main () {
     if (data2.data.isLogin) {
       console.log(`欢迎这个B友 ${data2.data.uname}! 等级: ${data2.data.level_info.current_level} 硬币: ${data2.data.money}`)
 
-      const bvid = await questionAsync('请输入视频的bvid: ');
+      const { list: videoList, title } = await getVideoList(api)
+      const [ firstVideo ] = videoList
 
-      const data3 = await request_view(api, { bvid })
-      const { pages } = data3
-      if (pages?.length) {
-        const cid = pages[0].cid
-        const title = data3.title
-        console.log(`视频标题: ${title}`)
+      if (firstVideo) {
+        console.log(`视频标题: ${firstVideo.title}`)
 
-        const isFFMPEGinstalled = await isFFMPEGInstalled()
-        let fnval: number
+        const fnval = await getFnval()
+        let codecid = fnval === 0 ? null : await askCodecId()
+
+        let quality: number = null
         
-        if (isFFMPEGinstalled) {
-          const answerNewType = await inquirer.prompt({
-            type: 'confirm',
-            name: 'newType',
-            message: 'ffmpeg 已安装，是否使用新型下载方式?（支持 hevc，av1 编码），下载速度更快'
-          })
-          fnval = answerNewType.newType ? 4048 : 0
-        } else {
-          console.log('ffmpeg 未安装，使用普通下载方式')
-          fnval = 0
-        }
-
-        let data4 = await request_playurl(api, { bvid, cid, qn: 120, fnval })
-        
-        const answerQuality = await inquirer.prompt(
-          {
-            type: 'rawlist',
-            name: 'quality',
-            message: '请选择视频质量',
-            choices: data4.accept_description.map((value, index) => {
-              return {
-                key: index.toString(),
-                name: value,
-                value: data4.accept_quality[index]
+        for (const videoItem of videoList) {
+          if (quality === null) {
+            let playurlData = await request_playurl(api, { bvid: videoItem.bvid, cid: videoItem.cid, fnval })
+            const answerQuality = await inquirer.prompt(
+              {
+                type: 'rawlist',
+                name: 'quality',
+                message: '请选择视频质量',
+                choices: playurlData.accept_description.map((value, index) => {
+                  return {
+                    key: index.toString(),
+                    name: value,
+                    value: playurlData.accept_quality[index]
+                  }
+                })
               }
-            })
+            )
+            quality = answerQuality.quality
+
+            if (playurlData.quality !== quality) {
+              playurlData = await request_playurl(api, { bvid: videoItem.bvid, cid: videoItem.cid, fnval, qn: quality })
+            }
+
+            const ouputFilepath = await downloadVideo(api, playurlData, `${title}_P${videoItem.page}_${videoItem.title}`, codecid)
+            console.log(`下载完成 ${ouputFilepath}`)
+          } else {
+            const playurlData = await request_playurl(api, { bvid: videoItem.bvid, cid: videoItem.cid, fnval, qn: quality })
+
+            const ouputFilepath = await downloadVideo(api, playurlData, `${title}_P${videoItem.page}_${videoItem.title}`, codecid)
+            console.log(`下载完成 ${ouputFilepath}`)
           }
-        )
-
-        if (answerQuality.quality !== data4.quality) {
-          data4 = await request_playurl(api, { bvid, cid, qn: answerQuality.quality, fnval })
         }
-
-        const ouputFilepath = await downloadVideo(http, data4, title)
-        console.log(`下载完成 ${ouputFilepath}`)
       }
     }
   }

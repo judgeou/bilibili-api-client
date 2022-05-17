@@ -59,7 +59,7 @@ function printOneLine (str: string) {
   process.stdout.write(str + '\r')
 }
 
-async function isFFMPEGInstalled () {
+async function isFFMPEGInstalled () : Promise<boolean> {
   return new Promise((resolve) => {
     const program = spawn('ffmpeg', ['-version'])
     program.stdout.on('data', data => {

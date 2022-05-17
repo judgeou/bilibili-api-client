@@ -5,7 +5,7 @@ import * as open from 'open'
 import * as stream from 'stream'
 import * as util from 'util'
 import * as inquirer from 'inquirer'
-import { mergeMedia, printOneLine, wait } from './toolkit'
+import { mergeMedia, printOneLine, wait, questionAsync, isFFMPEGInstalled } from './toolkit'
 
 const pipeline = util.promisify(stream.pipeline);
 
@@ -49,7 +49,9 @@ interface ViewResponse {
     videos: number,
     title: string,
     pages: {
-      cid: number
+      cid: number,
+      part: string,
+      page: number
     }[]
   }
 }
@@ -97,6 +99,18 @@ interface PlayurlResponse {
   data: PlayurlData
 }
 
+interface VideoItem {
+  bvid: string,
+  cid: number,
+  title: string,
+  page: number
+}
+
+interface VideoInfo {
+  title: string
+  list: VideoItem[]
+}
+
 const CODECID_AVC = 7
 const CODECID_HEVC = 12
 const CODECID_AV1 = 13
@@ -106,6 +120,30 @@ const api_getLoginInfo = 'https://passport.bilibili.com/qrcode/getLoginInfo'
 const api_nav = 'https://api.bilibili.com/nav'
 const api_view = 'https://api.bilibili.com/x/web-interface/view'
 const api_playurl = 'https://api.bilibili.com/x/player/playurl'
+
+function isbvid (str: string) {
+  return /^BV\w{10}$/.test(str)
+}
+
+function bilibiliUrlToBvid (url: string) {
+  const match = url.match(/www.bilibili.com\/video\/(BV\w+)/)
+  
+  if (match?.length > 1) {
+    return match[1]
+  } else {
+    return null
+  }
+}
+
+function bilibiliUrlToEpid (url: string) {
+  const match = url.match(/www.bilibili.com\/bangumi\/play\/ep(\d+)/)
+
+  if (match?.length > 1) {
+    return match[1]
+  } else {
+    return null
+  }
+}
 
 async function request_nav (api: AxiosInstance) {
   const res1 = await api.get(api_nav)
@@ -136,7 +174,7 @@ async function request_playurl (api: AxiosInstance, param: {
   qn?: number,
   fnval?: number
 }) {
-  const params = Object.assign({ qn: 32, fnval: 0, fnver: 0, fourk: 1 }, param)
+  const params = Object.assign({ qn: 112, fnval: 0, fnver: 0, fourk: 1 }, param)
   const res1 = await api.get(api_playurl, { params })
   const data1 = res1.data as PlayurlResponse
 
@@ -147,11 +185,88 @@ async function request_playurl (api: AxiosInstance, param: {
   }
 }
 
-async function downloadVideo (api: AxiosInstance, playurlInfo: PlayurlData, filename: string) {
+async function getVideoList (api: AxiosInstance) : Promise<VideoInfo> {
+  let bvid: string
+  let epid: number
+  let result: VideoInfo = {
+    title: '',
+    list: []
+  }
+
+  const url = await questionAsync('请输入视频链接或者BV号: ')
+
+  if (isbvid(url)) {
+    bvid = url
+  } else {
+    bvid = bilibiliUrlToBvid(url)
+
+    if (bvid === null) {
+      // TODO: 处理番剧
+      throw Error('未处理番剧')
+    }
+  }
+
+  if (bvid) {
+    const viewInfo = await request_view(api, { bvid })
+    const { pages } = viewInfo
+
+    result.title = viewInfo.title
+
+    if (pages.length > 1) {
+      const { pageIndex } = await inquirer.prompt({
+        type: 'rawlist',
+        name: 'pageIndex',
+        message: '请选择需要下载的分P: ',
+        choices: [
+          {
+            name: '【下载全部分P】',
+            value: 0
+          },
+          ...pages.map(page => {
+          return {
+            name: `${page.part}`,
+            value: page.page
+          }
+        })]
+      })
+      
+      if (pageIndex === 0) {
+        result.list = pages.map(page => {
+          return {
+            bvid: viewInfo.bvid,
+            cid: page.cid,
+            title: page.part,
+            page: page.page
+          }
+        })
+      } else {
+        const page = pages.find(page => page.page === pageIndex)
+        result.list = [{
+          bvid: viewInfo.bvid,
+          cid: page.cid,
+          title: page.part,
+          page: page.page
+        }]
+      }
+
+    } else if (pages.length === 1) {
+      result.list = [{
+        bvid: viewInfo.bvid,
+        cid: pages[0].cid,
+        title: viewInfo.title,
+        page: 1
+      }]
+    }
+  }
+
+  return result
+}
+
+async function downloadVideo (api: AxiosInstance, playurlInfo: PlayurlData, filename: string, codecid: number) {
   const { durl, dash } = playurlInfo
   
   if (dash) {
-    return downloadVideoDash(api, dash, filename, playurlInfo.quality)
+    return downloadVideoDash(api, dash, filename, playurlInfo.quality, codecid)
   } else if (durl) {
     return downloadVideoDurl(api, durl, filename)
   } else {
@@ -159,24 +274,19 @@ async function downloadVideo (api: AxiosInstance, playurlInfo: PlayurlData, file
   }
 }
 
-async function downloadVideoDash (api: AxiosInstance, dash: DashData, filename: string, quality: number) {
+async function downloadVideoDash (api: AxiosInstance, dash: DashData, filename: string, quality: number, codecid: number) {
   const { video, audio } = dash
 
   // get target quality videos
   let videos = video.filter(item => item.id === quality)
 
-  // which codecs we can choose
-  const codecsSet = Array.from(new Set(videos.map(item => item.codecs)))
+  videos = videos.filter(item => item.codecid === codecid)
 
-  // ask user to choose codecs
-  const codec = (await inquirer.prompt({
-    type: 'rawlist',
-    name: 'codec',
-    message: '请选择视频编码',
-    choices: codecsSet
-  })).codec
+  if (videos.length === 0) {
+    console.log('该视频没有对应的编码，使用默认编码')
 
-  videos = videos.filter(item => item.codecs === codec)
+    videos = video.filter(item => item.id === quality && item.codecid === CODECID_AVC)
+  }
   
   // get best quality audio
   const bestAudio = audio[0]
@@ -187,7 +297,7 @@ async function downloadVideoDash (api: AxiosInstance, dash: DashData, filename: 
   const downloadVideoItems = videos.map((item, index) => {
     return {
       index,
-      codec,
+      codec: item.codecs,
       type: 'video',
       url: item.baseUrl,
       ext: 'm4s'
@@ -236,7 +346,7 @@ async function downloadVideoDash (api: AxiosInstance, dash: DashData, filename: 
     }
   }
 
-  const outputFilepath = path.resolve('./download', `${filename.replace(/\//g, '_')}_${codec}.mp4`)
+  const outputFilepath = path.resolve('./download', `${filename.replace(/\//g, '_')}_${videos[0].codecs}.mp4`)
   await mergeMedia([...downloadVideosFilepath, ...downloadAudiosFilepath], outputFilepath)
 
   for (const filepath of [...downloadVideosFilepath, ...downloadAudiosFilepath]) {
@@ -276,6 +386,49 @@ async function downloadVideoDurl (api: AxiosInstance, durl: DurlData[], filename
   }
 }
 
+async function getFnval () {
+  const isFFMPEGinstalled = await isFFMPEGInstalled()
+  let fnval: number
+  
+  if (isFFMPEGinstalled) {
+    const answerNewType = await inquirer.prompt({
+      type: 'confirm',
+      name: 'newType',
+      message: 'ffmpeg 已安装，是否使用新型下载方式?（支持 hevc，av1 编码），下载速度更快'
+    })
+    fnval = answerNewType.newType ? 4048 : 0
+  } else {
+    console.log('ffmpeg 未安装，使用普通下载方式')
+    fnval = 0
+  }
+
+  return fnval
+}
+
+async function askCodecId () {
+  const answer = await inquirer.prompt({
+    type: 'rawlist',
+    name: 'codecid',
+    message: '请选择视频编码',
+    choices: [
+      {
+        name: 'avc',
+        value: CODECID_AVC
+      },
+      {
+        name: 'hevc',
+        value: CODECID_HEVC
+      },
+      {
+        name: 'av1',
+        value: CODECID_AV1
+      }
+    ]
+  })
+
+  return answer.codecid as number
+}
+
 export {
   getLoginUrlResponse,
   getLoginInfoResponse,
@@ -290,5 +443,11 @@ export {
   request_view,
   request_playurl,
 
-  downloadVideo
+  downloadVideo,
+  isbvid,
+  bilibiliUrlToBvid,
+  bilibiliUrlToEpid,
+  getVideoList,
+  getFnval,
+  askCodecId
 }
