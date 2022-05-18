@@ -399,7 +399,7 @@ async function downloadVideoDash (api: AxiosInstance, dash: DashData, filename: 
   }
   const downloadItems = [...downloadVideoItems, downloadAudioItems]
 
-  for (const item of downloadItems) {
+  await Promise.all(downloadItems.map(async item => {
     const filepath = path.resolve('./download', `${filename.replace(/\//g, '_')}_${item.type}_${item.index}_${item.codec}.${item.ext}`)
     await fs.remove(filepath)
     fs.closeSync(fs.openSync(filepath, 'w'));
@@ -421,7 +421,7 @@ async function downloadVideoDash (api: AxiosInstance, dash: DashData, filename: 
       const writtenPerSecond = (stat.size - written)
       written = stat.size
 
-      printOneLine(`downloading ${filepath} ${(written / size * 100).toFixed(2)}% ${(writtenPerSecond / 1024 / 1024).toFixed(2)} MB/S \r`)
+      console.log(`downloading ${filepath} ${(written / size * 100).toFixed(2)}% ${(writtenPerSecond / 1024 / 1024).toFixed(2)} MB/S \r`)
 
       await wait(1000)
     }
@@ -431,7 +431,7 @@ async function downloadVideoDash (api: AxiosInstance, dash: DashData, filename: 
     } else if (item.type === 'audio') {
       downloadAudiosFilepath.push(filepath)
     }
-  }
+  }))
 
   const outputFilepath = path.resolve('./download', `${filename.replace(/\//g, '_')}_${videos[0].codecs}.mp4`)
   await mergeMedia([...downloadVideosFilepath, ...downloadAudiosFilepath], outputFilepath)
