@@ -122,7 +122,7 @@ async function main () {
       const [ firstVideo ] = videoList
 
       if (firstVideo) {
-        console.log(`视频标题: ${firstVideo.title}`)
+        console.log(`视频标题: ${title}`)
 
         const fnval = await getFnval()
         let codecid = fnval === 0 ? null : await askCodecId()

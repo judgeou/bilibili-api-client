@@ -99,6 +99,22 @@ interface PlayurlResponse {
   data: PlayurlData
 }
 
+interface SeasonData {
+  season_title: string,
+  evaluate: string,
+  episodes: {
+    bvid: string,
+    cid: number,
+    long_title: string,
+  }[]
+}
+
+interface SeasonResponse {
+  code: number,
+  message: string,
+  result: SeasonData
+}
+
 interface VideoItem {
   bvid: string,
   cid: number,
@@ -120,6 +136,7 @@ const api_getLoginInfo = 'https://passport.bilibili.com/qrcode/getLoginInfo'
 const api_nav = 'https://api.bilibili.com/nav'
 const api_view = 'https://api.bilibili.com/x/web-interface/view'
 const api_playurl = 'https://api.bilibili.com/x/player/playurl'
+const api_season = 'https://api.bilibili.com/pgc/view/web/season'
 
 function isbvid (str: string) {
   return /^BV\w{10}$/.test(str)
@@ -185,6 +202,17 @@ async function request_playurl (api: AxiosInstance, param: {
   }
 }
 
+async function request_season (api: AxiosInstance, params: { ep_id: number }) {
+  const res1 = await api.get(api_season, { params })
+  const data1 = res1.data as SeasonResponse
+
+  if (data1.code === 0) {
+    return data1.result
+  } else {
+    throw Error(data1.message)
+  }
+}
+
 async function getVideoList (api: AxiosInstance) : Promise<VideoInfo> {
   let bvid: string
   let epid: number
@@ -201,8 +229,61 @@ async function getVideoList (api: AxiosInstance) : Promise<VideoInfo> {
     bvid = bilibiliUrlToBvid(url)
 
     if (bvid === null) {
-      // TODO: 处理番剧
-      throw Error('未处理番剧')
+      epid = Number(bilibiliUrlToEpid(url))
+
+      if (epid) {
+        const seasonData = await request_season(api, { ep_id: epid })
+        const { episodes } = seasonData
+        result.title = seasonData.season_title
+
+        if (episodes.length > 1) {
+          const { pageIndex } = await inquirer.prompt({
+            type: 'rawlist',
+            name: 'pageIndex',
+            message: '请选择需要下载的剧集: ',
+            choices: [
+              {
+                name: '【下载全集】',
+                value: 0
+              },
+              ...episodes.map((item, index) => {
+                return {
+                  name: item.long_title,
+                  value: index + 1
+                }
+              })
+            ]
+          })
+
+          if (pageIndex === 0) {
+            result.list = episodes.map((item, index) => {
+              return {
+                bvid: item.bvid,
+                cid: item.cid,
+                title: item.long_title,
+                page: index + 1
+              }
+            })
+          } else {
+            const ep = episodes[pageIndex - 1]
+            result.list = [{
+              bvid: ep.bvid,
+              cid: ep.cid,
+              title: ep.long_title,
+              page: pageIndex
+            }]
+          }
+        } else {
+          result.list.push({
+            bvid: episodes[0].bvid,
+            cid: episodes[0].cid,
+            title: episodes[0].long_title,
+            page: 1
+          })
+        }
+      } else {
+        throw Error('无效的视频链接')
+      }
     }
   }
 
