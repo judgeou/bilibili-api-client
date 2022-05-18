@@ -131,6 +131,12 @@ const CODECID_AVC = 7
 const CODECID_HEVC = 12
 const CODECID_AV1 = 13
 
+const CODEC_MAP = {
+  [CODECID_AVC]: 'avc',
+  [CODECID_HEVC]: 'hevc',
+  [CODECID_AV1]: 'av1'
+}
+
 const api_getLoginUrl = 'https://passport.bilibili.com/qrcode/getLoginUrl'
 const api_getLoginInfo = 'https://passport.bilibili.com/qrcode/getLoginInfo'
 const api_nav = 'https://api.bilibili.com/nav'
@@ -364,9 +370,9 @@ async function downloadVideoDash (api: AxiosInstance, dash: DashData, filename: 
   videos = videos.filter(item => item.codecid === codecid)
 
   if (videos.length === 0) {
-    console.log('该视频没有对应的编码，使用默认编码')
+    videos = [ video.filter(item => item.id === quality)[0] ]
 
-    videos = video.filter(item => item.id === quality && item.codecid === CODECID_AVC)
+    console.log(`该视频没有对应的编码，尝试更换为 ${CODEC_MAP[videos[0].codecid]}`)
   }
   
   // get best quality audio

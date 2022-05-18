@@ -34,5 +34,5 @@ npm run start
 
 * 普通：https://www.bilibili.com/video/BV18q4y1x7PH
 * 番剧：https://www.bilibili.com/bangumi/play/ep508406 https://www.bilibili.com/bangumi/play/ep511342
-* 8k：https://www.bilibili.com/video/BV1yb4y1J7wR https://www.bilibili.com/video/BV1qM4y1w716
+* 8k：https://www.bilibili.com/video/BV1yb4y1J7wR https://www.bilibili.com/video/BV1qM4y1w716 BV1iq4y1R7sd
 * 多P：https://www.bilibili.com/video/BV1ia41187a9 BV1Hv4y1N7MU
