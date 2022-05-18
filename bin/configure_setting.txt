@@ -1,0 +1,1 @@
+./configure --disable-encoders --disable-decoders --disable-filters --disable-devices --disable-bsfs --disable-hwaccels

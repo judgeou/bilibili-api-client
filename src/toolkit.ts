@@ -3,7 +3,11 @@ import * as FormData from 'form-data'
 import * as QRCode from 'qrcode'
 import * as open from 'open'
 import * as readline from 'readline'
+import * as path from 'path'
+import * as fs from 'fs-extra'
 import { spawn } from 'child_process'
+
+let ffmpeg_bin_path = 'ffmpeg'
 
 function buildFormData (obj) {
   const formData = new FormData()
@@ -60,8 +64,21 @@ function printOneLine (str: string) {
 }
 
 async function isFFMPEGInstalled () : Promise<boolean> {
+  // check bin dir
+  const { platform, arch } = process
+  const binExt = platform === 'win32' ? '.exe' : ''
+  const binPath = path.resolve('./bin', `ffmpeg_${platform}_${arch}${binExt}`)
+  const binExists = await fs.exists(binPath)
+
+  if (binExists) {
+    ffmpeg_bin_path = binPath
+    console.log(`${binPath} found`)
+  } else {
+    console.log(`${binPath} not found`)
+  }
+
   return new Promise((resolve) => {
-    const program = spawn('ffmpeg', ['-version'])
+    const program = spawn(ffmpeg_bin_path, ['-version'])
     program.stdout.on('data', data => {
       resolve(true)
     })
@@ -84,7 +101,7 @@ async function mergeMedia (mediaFilepaths: string[], outputFilepath: string) {
       args.push(mediaFilepath)
     }
     args = [...args, '-c', 'copy', '-y', outputFilepath]
-    const ffmpeg = spawn('ffmpeg', args)
+    const ffmpeg = spawn(ffmpeg_bin_path, args)
   
     ffmpeg.stdout.pipe(process.stdout)
   

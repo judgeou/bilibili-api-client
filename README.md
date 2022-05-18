@@ -30,6 +30,12 @@ npm run start
 
 ![](./images/2022-05-18-10-22-15.png)
 
+## FFmpeg
+
+默认会从 bin 文件夹查找 ffmpeg 的可执行文件，规则是 `ffmpeg_${platform}_${arch}${binExt}`，如果没有找到则直接使用命令 ffmpeg。
+
+目前已自带 windows x64 和 macos arm64 版本。编译的参数是 `./configure --disable-encoders --disable-decoders --disable-filters --disable-devices --disable-bsfs --disable-hwaccels`，因为只是用来合并视频音频，所以不需要其他功能，精简了大小
+
 ## 测试视频
 
 * 普通：https://www.bilibili.com/video/BV18q4y1x7PH
