@@ -1,4 +1,6 @@
 import { AxiosInstance } from 'axios'
+import * as http from 'http'
+import { AddressInfo } from 'net'
 import * as fs from 'fs-extra'
 import * as path from 'path'
 import * as open from 'open'
@@ -6,6 +8,7 @@ import * as stream from 'stream'
 import * as util from 'util'
 import * as inquirer from 'inquirer'
 import { mergeMedia, printOneLine, wait, questionAsync, isFFMPEGInstalled } from './toolkit'
+import { resolve } from 'path'
 
 const pipeline = util.promisify(stream.pipeline);
 
@@ -399,46 +402,29 @@ async function downloadVideoDash (api: AxiosInstance, dash: DashData, filename: 
   }
   const downloadItems = [...downloadVideoItems, downloadAudioItems]
 
-  await Promise.all(downloadItems.map(async item => {
-    const filepath = path.resolve('./download', `${filename.replace(/\//g, '_')}_${item.type}_${item.index}_${item.codec}.${item.ext}`)
-    await fs.remove(filepath)
-    fs.closeSync(fs.openSync(filepath, 'w'));
-
+  const responses = await Promise.all(downloadItems.map(async item => {
     const url = item.url
     const res1 = await api.get(url, { responseType: 'stream', })
-    const size = Number(res1.headers['content-length'])
-    const writer = fs.createWriteStream(filepath, { flags: 'a' })
-
-    let state = -1
-    pipeline(res1.data, writer).then(() => {
-      state = 0
-    }).catch(err => {
-      state = err
-    })
-
-    for (let written = 0; state === -1;) {
-      const stat = await fs.stat(filepath)
-      const writtenPerSecond = (stat.size - written)
-      written = stat.size
-
-      console.log(`downloading ${filepath} ${(written / size * 100).toFixed(2)}% ${(writtenPerSecond / 1024 / 1024).toFixed(2)} MB/S \r`)
-
-      await wait(1000)
-    }
-
-    if (item.type === 'video') {
-      downloadVideosFilepath.push(filepath)
-    } else if (item.type === 'audio') {
-      downloadAudiosFilepath.push(filepath)
-    }
+    return res1
   }))
 
-  const outputFilepath = path.resolve('./download', `${filename.replace(/\//g, '_')}_${videos[0].codecs}.mp4`)
-  await mergeMedia([...downloadVideosFilepath, ...downloadAudiosFilepath], outputFilepath)
+  const server = http.createServer((req, res) => {
+    const index = Number(req.url[1]) // /1 -> 1; /2 -> 2
+    pipeline(responses[index].data, res)
+  })
 
-  for (const filepath of [...downloadVideosFilepath, ...downloadAudiosFilepath]) {
-    await fs.remove(filepath)
-  }
+  const addressInfo = await new Promise<AddressInfo>(resolve => {
+    server.listen(0, () => {
+      const addressInfo = server.address() as AddressInfo
+      resolve(addressInfo)
+    })
+  })
+
+  const outputFilepath = path.resolve('./download', `${filename.replace(/\//g, '_')}_${videos[0].codecs}.mp4`)
+  await mergeMedia(downloadItems.map((item, index) => {
+    const url = `http://localhost:${addressInfo.port}/${index}`
+    return url
+  }), outputFilepath)
 
   return outputFilepath
 }

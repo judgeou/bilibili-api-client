@@ -117,10 +117,49 @@ async function mergeMedia (mediaFilepaths: string[], outputFilepath: string) {
   })
 }
 
+async function playMedia (mediaFilepaths: string[]) {
+  return new Promise((resolve, reject) => {
+    let args = []
+    for (const mediaFilepath of mediaFilepaths) {
+      args.push('-i')
+      args.push(mediaFilepath)
+    }
+    args = [...args, '-c', 'copy', '-f', 'matroska', '-']
+    const ffmpeg = spawn(ffmpeg_bin_path, args)
+
+    const ffplay = spawn('ffplay', ['-x', '500', '-'])
+  
+    ffmpeg.stdout.pipe(ffplay.stdin)
+    ffmpeg.stdout.on('error', err => {
+      resolve(true)
+    })
+    ffplay.stdin.on('error', err => {
+      resolve(true)
+    })
+  
+    ffmpeg.on('close', code => {
+      resolve(true)
+    })
+
+    ffmpeg.on('error', err => {
+      resolve(true)
+    })
+    
+    ffplay.on('close', code => {
+      resolve(true)
+    })
+
+    ffplay.on('error', err => {
+      resolve(true)
+    })
+  })
+}
+
 export {
   buildFormData,
   buildPostParam,
   mergeMedia,
+  playMedia,
   openQRCodeBrowser,
   printOneLine,
   questionAsync,
