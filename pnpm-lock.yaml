@@ -3,6 +3,7 @@ lockfileVersion: 5.4
 specifiers:
   '@types/node': '*'
   axios: ^0.27.2
+  dotenv: ^16.0.1
   form-data: ^4.0.0
   fs-extra: ^10.1.0
   inquirer: ^8.2.4
@@ -16,6 +17,7 @@ specifiers:
 dependencies:
   '@types/node': 17.0.32
   axios: 0.27.2
+  dotenv: 16.0.1
   form-data: 4.0.0
   fs-extra: 10.1.0
   inquirer: 8.2.4
@@ -395,6 +397,11 @@ packages:
     engines: {node: '>=8'}
     dependencies:
       is-obj: 2.0.0
+    dev: false
+
+  /dotenv/16.0.1:
+    resolution: {integrity: sha512-1K6hR6wtk2FviQ4kEiSjFiH5rpzEVi8WW0x96aztHVMhEspNpc4DVOUTEHtEva5VThQ8IaBX1Pe4gSzpVVUsKQ==}
+    engines: {node: '>=12'}
     dev: false
 
   /duplexer3/0.1.4:

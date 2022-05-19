@@ -36,6 +36,16 @@ npm run start
 
 目前已自带 windows x64 和 macos arm64 版本。编译的参数是 `./configure --disable-encoders --disable-decoders --disable-filters --disable-devices --disable-bsfs --disable-hwaccels`，因为只是用来合并视频音频，所以不需要其他功能，精简了大小
 
+## 港澳台新番
+
+在根目录下创建 `.env` 文件，然后写：
+
+```
+API_PROXY_HOST=api.your-bilibili-proxy.com
+```
+
+程序会使用这个域名请求
+
 ## 测试视频
 
 * 普通：https://www.bilibili.com/video/BV18q4y1x7PH
@@ -43,3 +53,4 @@ npm run start
 * 8k：https://www.bilibili.com/video/BV1yb4y1J7wR https://www.bilibili.com/video/BV1qM4y1w716 BV1iq4y1R7sd
 * 多P：https://www.bilibili.com/video/BV1ia41187a9 BV1Hv4y1N7MU
 * 直播 https://live.bilibili.com/21704811
+* 港澳台新番 https://www.bilibili.com/bangumi/play/ss41492/

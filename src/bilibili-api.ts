@@ -9,6 +9,9 @@ import * as util from 'util'
 import * as inquirer from 'inquirer'
 import { mergeMedia, playMedia, printOneLine, wait, questionAsync, isFFMPEGInstalled, formatDate, printDownloadInfoLoop } from './toolkit'
 import { resolve } from 'path'
+import { config } from 'dotenv'
+
+config()
 
 const pipeline = util.promisify(stream.pipeline);
 
@@ -165,12 +168,17 @@ const CODEC_MAP = {
   [CODECID_AV1]: 'av1'
 }
 
+const { API_PROXY_HOST } = process.env
+if (API_PROXY_HOST) {
+  console.log('检测到代理地址 ' + API_PROXY_HOST)
+}
+
 const api_getLoginUrl = 'https://passport.bilibili.com/qrcode/getLoginUrl'
 const api_getLoginInfo = 'https://passport.bilibili.com/qrcode/getLoginInfo'
 const api_nav = 'https://api.bilibili.com/nav'
 const api_view = 'https://api.bilibili.com/x/web-interface/view'
-const api_playurl = 'https://api.bilibili.com/x/player/playurl'
-const api_season = 'https://api.bilibili.com/pgc/view/web/season'
+const api_playurl = API_PROXY_HOST ? `https://${API_PROXY_HOST}/x/player/playurl` : 'https://api.bilibili.com/x/player/playurl'
+const api_season = API_PROXY_HOST ? `https://${API_PROXY_HOST}/pgc/view/web/season` : 'https://api.bilibili.com/pgc/view/web/season'
 const api_room_init = 'https://api.live.bilibili.com/room/v1/Room/room_init'
 const api_room_playurl = 'https://api.live.bilibili.com/room/v1/Room/playUrl'
 
