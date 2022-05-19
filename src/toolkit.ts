@@ -9,6 +9,16 @@ import { spawn } from 'child_process'
 
 let ffmpeg_bin_path = 'ffmpeg'
 
+function formatDate (date: Date) {
+  const year = date.getFullYear()
+  const month = date.getMonth() + 1
+  const day = date.getDate()
+  const hour = date.getHours()
+  const minute = date.getMinutes()
+  const second = date.getSeconds()
+  return `${year}-${month}-${day} ${hour}-${minute}-${second}`
+}
+
 function buildFormData (obj) {
   const formData = new FormData()
   for (const key in obj) {
@@ -63,6 +73,24 @@ function printOneLine (str: string) {
   process.stdout.write(str + '\r')
 }
 
+async function printDownloadInfoLoop (filepath: string, state: { exit: boolean }, totalSize: number = 0) {
+  for (let written = 0; state.exit === false;) {
+    if (await fs.exists(filepath)) {
+      const stat = await fs.stat(filepath)
+      const writtenPerSecond = (stat.size - written)
+      written = stat.size
+
+      if (totalSize > 0) {
+        printOneLine(`downloading ${filepath} ${(written / totalSize * 100).toFixed(2)}% ${(writtenPerSecond / 1024 / 1024).toFixed(2)} MB/S \r`)
+      } else {
+        printOneLine(`downloading ${written / 1024 /1024} MB ${(writtenPerSecond / 1024 / 1024).toFixed(2)} MB/S \r`)
+      }
+    }
+
+    await wait(1000)
+  }
+}
+
 async function isFFMPEGInstalled () : Promise<boolean> {
   // check bin dir
   const { platform, arch } = process
@@ -95,7 +123,7 @@ async function isFFMPEGInstalled () : Promise<boolean> {
 
 async function mergeMedia (mediaFilepaths: string[], outputFilepath: string) {
   return new Promise((resolve, reject) => {
-    let args = []
+    let args = ['-v', 'error']
     for (const mediaFilepath of mediaFilepaths) {
       args.push('-i')
       args.push(mediaFilepath)
@@ -158,6 +186,7 @@ async function playMedia (mediaFilepaths: string[]) {
 export {
   buildFormData,
   buildPostParam,
+  formatDate,
   mergeMedia,
   playMedia,
   openQRCodeBrowser,
@@ -166,5 +195,6 @@ export {
   showQRCodeConsole,
   showQRCodeFile,
   wait,
-  isFFMPEGInstalled
+  isFFMPEGInstalled,
+  printDownloadInfoLoop
 }

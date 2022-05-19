@@ -16,7 +16,7 @@ npm run start
 
 控制台会出现二维码，使用哔哩哔哩手机APP扫码登陆。
 
-随后输入BV号，即可下载视频。（已支持完整网址、多P下载、新番下载）
+随后输入BV号，即可下载视频。（已支持完整网址、多P下载、新番下载、直播下载）
 
 ![](./images/2022-05-16-10-12-54.png)
 
@@ -42,3 +42,4 @@ npm run start
 * 番剧：https://www.bilibili.com/bangumi/play/ep508406 https://www.bilibili.com/bangumi/play/ep511342
 * 8k：https://www.bilibili.com/video/BV1yb4y1J7wR https://www.bilibili.com/video/BV1qM4y1w716 BV1iq4y1R7sd
 * 多P：https://www.bilibili.com/video/BV1ia41187a9 BV1Hv4y1N7MU
+* 直播 https://live.bilibili.com/21704811

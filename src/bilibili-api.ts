@@ -7,7 +7,7 @@ import * as open from 'open'
 import * as stream from 'stream'
 import * as util from 'util'
 import * as inquirer from 'inquirer'
-import { mergeMedia, printOneLine, wait, questionAsync, isFFMPEGInstalled } from './toolkit'
+import { mergeMedia, playMedia, printOneLine, wait, questionAsync, isFFMPEGInstalled, formatDate, printDownloadInfoLoop } from './toolkit'
 import { resolve } from 'path'
 
 const pipeline = util.promisify(stream.pipeline);
@@ -118,6 +118,31 @@ interface SeasonResponse {
   result: SeasonData
 }
 
+interface RoomInitResponse {
+  code: number,
+  message: string,
+  data: {
+    room_id: number,
+  }
+}
+
+interface RoomPlayurlResponse {
+  code: number,
+  message: string,
+  data: {
+    current_quality: number,
+    current_qn: number,
+    accept_quality: number[],
+    quality_description: {
+      qn: number,
+      desc: string
+    }[],
+    durl: {
+      url: string
+    }[]
+  }
+}
+
 interface VideoItem {
   bvid: string,
   cid: number,
@@ -146,6 +171,8 @@ const api_nav = 'https://api.bilibili.com/nav'
 const api_view = 'https://api.bilibili.com/x/web-interface/view'
 const api_playurl = 'https://api.bilibili.com/x/player/playurl'
 const api_season = 'https://api.bilibili.com/pgc/view/web/season'
+const api_room_init = 'https://api.live.bilibili.com/room/v1/Room/room_init'
+const api_room_playurl = 'https://api.live.bilibili.com/room/v1/Room/playUrl'
 
 function isbvid (str: string) {
   return /^BV\w{10}$/.test(str)
@@ -163,6 +190,16 @@ function bilibiliUrlToBvid (url: string) {
 
 function bilibiliUrlToEpid (url: string) {
   const match = url.match(/www.bilibili.com\/bangumi\/play\/ep(\d+)/)
+
+  if (match?.length > 1) {
+    return match[1]
+  } else {
+    return null
+  }
+}
+
+function bilibiliUrlToLiveid (url: string) {
+  const match = url.match(/live.bilibili.com\/(\d+)/)
 
   if (match?.length > 1) {
     return match[1]
@@ -222,15 +259,79 @@ async function request_season (api: AxiosInstance, params: { ep_id: number }) {
   }
 }
 
-async function getVideoList (api: AxiosInstance) : Promise<VideoInfo> {
+async function request_room_init (api: AxiosInstance, params: { id: number }) {
+  const res1 = await api.get(api_room_init, { params })
+  const data1 = res1.data as RoomInitResponse
+
+  if (data1.code === 0) {
+    return data1.data
+  } else {
+    throw Error(data1.message)
+  }
+}
+
+async function request_room_playurl (api: AxiosInstance, params: { cid: number, platform: string, qn: number }) {
+  const res1 = await api.get(api_room_playurl, { params })
+  const data1 = res1.data as RoomPlayurlResponse
+
+  if (data1.code === 0) {
+    return data1.data
+  } else {
+    throw Error(data1.message)
+  }
+}
+
+async function downloadLive (api: AxiosInstance, url: string) {
+  const liveid = bilibiliUrlToLiveid(url)
+
+  if (liveid) {
+    const id = Number(bilibiliUrlToLiveid(url))
+
+    const res1 = await request_room_init(api, { id })
+    const roomid = res1.room_id
+
+    let res2 = await request_room_playurl(api, { cid: roomid, platform: 'h5', qn: 10000 })
+    const { qn } = await inquirer.prompt({
+      type: 'rawlist',
+      name: 'qn',
+      message: '请选择下载的视频质量',
+      choices: res2.quality_description.map(item => {
+        return {
+          name: item.desc,
+          value: item.qn
+        }
+      })
+    })
+
+    if (qn !== res2.current_qn) {
+      res2 = await request_room_playurl(api, { cid: roomid, platform: 'h5', qn })
+    }
+
+    const downloadUrl = res2.durl[0].url
+    const outputFilepath = path.resolve('./download', `live_${id}_${formatDate(new Date())}.mkv`)
+    
+    console.log('开始保存直播视频，位置: ' + outputFilepath)
+    console.log('如果要停止则直接按 Ctrl+C')
+
+    let state = { exit: false }
+    printDownloadInfoLoop(outputFilepath, state)
+
+    await mergeMedia([ downloadUrl ], outputFilepath)
+    state.exit = true
+
+    return true
+  } else {
+    return false
+  }
+}
+
+async function getVideoList (api: AxiosInstance, url: string) : Promise<VideoInfo> {
   let bvid: string
   let epid: number
   let result: VideoInfo = {
     title: '',
     list: []
   }
-
-  const url = await questionAsync('请输入视频链接或者BV号: ')
 
   if (isbvid(url)) {
     bvid = url
@@ -381,9 +482,6 @@ async function downloadVideoDash (api: AxiosInstance, dash: DashData, filename: 
   // get best quality audio
   const bestAudio = audio[0]
 
-  const downloadVideosFilepath: string[] = []
-  const downloadAudiosFilepath: string[] = []
-
   const downloadVideoItems = videos.map((item, index) => {
     return {
       index,
@@ -420,11 +518,18 @@ async function downloadVideoDash (api: AxiosInstance, dash: DashData, filename: 
     })
   })
 
-  const outputFilepath = path.resolve('./download', `${filename.replace(/\//g, '_')}_${videos[0].codecs}.mp4`)
+  const outputFilepath = path.resolve('./download', `${filename.replace(/\//g, '_')}_${videos[0].codecs}.mkv`)
+
+  const totalSize = responses.reduce((total, item) => total + Number(item.headers['content-length']), 0)
+  let state = { exit: false }
+  printDownloadInfoLoop(outputFilepath, state, totalSize)
+
   await mergeMedia(downloadItems.map((item, index) => {
     const url = `http://localhost:${addressInfo.port}/${index}`
     return url
   }), outputFilepath)
+
+  state.exit = true
 
   return outputFilepath
 }
@@ -516,6 +621,7 @@ export {
   request_view,
   request_playurl,
 
+  downloadLive,
   downloadVideo,
   isbvid,
   bilibiliUrlToBvid,

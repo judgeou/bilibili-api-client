@@ -1,7 +1,7 @@
 import axios from 'axios'
 import * as fs from 'fs-extra'
 import * as inquirer from 'inquirer'
-import { api_getLoginInfo, api_getLoginUrl, askCodecId, bilibiliUrlToBvid, downloadVideo, getFnval, getLoginInfoResponse, getLoginUrlResponse, getVideoList, isbvid, request_nav, request_playurl, request_view } from './bilibili-api'
+import { api_getLoginInfo, api_getLoginUrl, askCodecId, bilibiliUrlToBvid, downloadLive, downloadVideo, getFnval, getLoginInfoResponse, getLoginUrlResponse, getVideoList, isbvid, request_nav, request_playurl, request_view } from './bilibili-api'
 import { buildPostParam, printOneLine, questionAsync, showQRCodeConsole, wait, isFFMPEGInstalled } from './toolkit'
 
 const referer = "https://www.bilibili.com/"
@@ -118,7 +118,14 @@ async function main () {
     if (data2.data.isLogin) {
       console.log(`欢迎这个B友 ${data2.data.uname}! 等级: ${data2.data.level_info.current_level} 硬币: ${data2.data.money}`)
 
-      const { list: videoList, title } = await getVideoList(api)
+      const url = await questionAsync('请输入视频、番剧、直播链接或者BV号: ')
+
+      const isLive = await downloadLive(api, url)
+      if (isLive) {
+        return
+      }
+
+      const { list: videoList, title } = await getVideoList(api, url)
       const [ firstVideo ] = videoList
 
       if (firstVideo) {
