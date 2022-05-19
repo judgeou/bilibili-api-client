@@ -198,6 +198,16 @@ function bilibiliUrlToEpid (url: string) {
   }
 }
 
+function bilibiliUrlToSeasonId (url: string) {
+  const match = url.match(/www.bilibili.com\/bangumi\/play\/ss(\d+)/)
+
+  if (match?.length > 1) {
+    return match[1]
+  } else {
+    return null
+  }
+}
+
 function bilibiliUrlToLiveid (url: string) {
   const match = url.match(/live.bilibili.com\/(\d+)/)
 
@@ -248,7 +258,7 @@ async function request_playurl (api: AxiosInstance, param: {
   }
 }
 
-async function request_season (api: AxiosInstance, params: { ep_id: number }) {
+async function request_season (api: AxiosInstance, params: { ep_id?: number, season_id?: number }) {
   const res1 = await api.get(api_season, { params })
   const data1 = res1.data as SeasonResponse
 
@@ -327,7 +337,6 @@ async function downloadLive (api: AxiosInstance, url: string) {
 
 async function getVideoList (api: AxiosInstance, url: string) : Promise<VideoInfo> {
   let bvid: string
-  let epid: number
   let result: VideoInfo = {
     title: '',
     list: []
@@ -339,10 +348,11 @@ async function getVideoList (api: AxiosInstance, url: string) : Promise<VideoInf
     bvid = bilibiliUrlToBvid(url)
 
     if (bvid === null) {
-      epid = Number(bilibiliUrlToEpid(url))
+      const epid = bilibiliUrlToEpid(url) ? Number(bilibiliUrlToEpid(url)) : null
+      const season_id = bilibiliUrlToSeasonId(url) ? Number(bilibiliUrlToSeasonId(url)) : null
 
-      if (epid) {
-        const seasonData = await request_season(api, { ep_id: epid })
+      if (epid || season_id) {
+        const seasonData = await request_season(api, { ep_id: epid, season_id })
         const { episodes } = seasonData
         result.title = seasonData.season_title
 
@@ -543,22 +553,11 @@ async function downloadVideoDurl (api: AxiosInstance, durl: DurlData[], filename
     const res1 = await api.get(url, { responseType: 'stream', })
     const writer = fs.createWriteStream(filepath, { flags: 'a' })
 
-    let state = -1
-    pipeline(res1.data, writer).then(() => {
-      state = 0
-    }).catch(err => {
-      state = err
-    })
+    let state = { exit: false }
+    printDownloadInfoLoop(filepath, state, size)
 
-    for (let written = 0; written < size && state === -1;) {
-      const stat = await fs.stat(filepath)
-      const writtenPerSecond = (stat.size - written)
-      written = stat.size
-
-      printOneLine(`${(written / size * 100).toFixed(2)}% ${(writtenPerSecond / 1024 / 1024).toFixed(2)} MB/S \r`)
-
-      await wait(1000)
-    }
+    await pipeline(res1.data, writer)
+    state.exit = true
 
     return filepath
   }
