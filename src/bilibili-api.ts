@@ -10,6 +10,7 @@ import * as inquirer from 'inquirer'
 import { mergeMedia, playMedia, printOneLine, wait, questionAsync, isFFMPEGInstalled, formatDate, printDownloadInfoLoop } from './toolkit'
 import { resolve } from 'path'
 import { config } from 'dotenv'
+import { jsonSubtitleToAss } from './subtitle'
 
 config()
 
@@ -54,6 +55,13 @@ interface ViewResponse {
     aid: number,
     videos: number,
     title: string,
+    subtitle: {
+      list: {
+        lan: string,
+        lan_doc: string,
+        subtitle_url: string
+      }[]
+    }
     pages: {
       cid: number,
       part: string,
@@ -176,7 +184,7 @@ if (API_PROXY_HOST) {
 const api_getLoginUrl = 'https://passport.bilibili.com/qrcode/getLoginUrl'
 const api_getLoginInfo = 'https://passport.bilibili.com/qrcode/getLoginInfo'
 const api_nav = 'https://api.bilibili.com/nav'
-const api_view = 'https://api.bilibili.com/x/web-interface/view'
+const api_view = API_PROXY_HOST ? `https://${API_PROXY_HOST}/x/web-interface/view` : 'https://api.bilibili.com/x/web-interface/view'
 const api_playurl = API_PROXY_HOST ? `https://${API_PROXY_HOST}/x/player/playurl` : 'https://api.bilibili.com/x/player/playurl'
 const api_season = API_PROXY_HOST ? `https://${API_PROXY_HOST}/pgc/view/web/season` : 'https://api.bilibili.com/pgc/view/web/season'
 const api_room_init = 'https://api.live.bilibili.com/room/v1/Room/room_init'
@@ -571,6 +579,23 @@ async function downloadVideoDurl (api: AxiosInstance, durl: DurlData[], filename
   }
 }
 
+async function downloadSubtitle (api: AxiosInstance, bvid: string, name: string) {
+  // 处理字幕
+  const viewInfo = await request_view(api, { bvid })
+  if (viewInfo.subtitle && viewInfo.subtitle.list?.length > 0) {
+    const { list } = viewInfo.subtitle
+
+    for (const item of list) {
+      const { data } = await api.get(item.subtitle_url)
+      const filepath = path.resolve('./download', `${name}_${item.lan_doc}.ass`)
+      const assContent = jsonSubtitleToAss(data)
+      await fs.writeFile(filepath, assContent)
+
+      console.log('已下载字幕：' + filepath)
+    }
+  }
+}
+
 async function getFnval () {
   const isFFMPEGinstalled = await isFFMPEGInstalled()
   let fnval: number
@@ -630,6 +655,7 @@ export {
 
   downloadLive,
   downloadVideo,
+  downloadSubtitle,
   isbvid,
   bilibiliUrlToBvid,
   bilibiliUrlToEpid,

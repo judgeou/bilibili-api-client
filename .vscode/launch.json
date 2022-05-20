@@ -16,9 +16,18 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "Launch",
+      "name": "Launch App",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev-debug"],
+      "sourceMaps": true,
+      "console": "integratedTerminal"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch Test",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "test-debug"],
       "sourceMaps": true,
       "console": "integratedTerminal"
     }

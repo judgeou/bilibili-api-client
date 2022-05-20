@@ -1,7 +1,7 @@
 import axios from 'axios'
 import * as fs from 'fs-extra'
 import * as inquirer from 'inquirer'
-import { api_getLoginInfo, api_getLoginUrl, askCodecId, bilibiliUrlToBvid, downloadLive, downloadVideo, getFnval, getLoginInfoResponse, getLoginUrlResponse, getVideoList, isbvid, request_nav, request_playurl, request_view } from './bilibili-api'
+import { api_getLoginInfo, api_getLoginUrl, askCodecId, bilibiliUrlToBvid, downloadLive, downloadSubtitle, downloadVideo, getFnval, getLoginInfoResponse, getLoginUrlResponse, getVideoList, isbvid, request_nav, request_playurl, request_view } from './bilibili-api'
 import { buildPostParam, printOneLine, questionAsync, showQRCodeConsole, wait, isFFMPEGInstalled } from './toolkit'
 
 const referer = "https://www.bilibili.com/"
@@ -159,11 +159,14 @@ async function main () {
               playurlData = await request_playurl(api, { bvid: videoItem.bvid, cid: videoItem.cid, fnval, qn: quality })
             }
 
+            await downloadSubtitle(api, videoItem.bvid, `${title}_P${videoItem.page}_${videoItem.title}`)
+
             const ouputFilepath = await downloadVideo(api, playurlData, `${title}_P${videoItem.page}_${videoItem.title}`, codecid)
             console.log(`下载完成 ${ouputFilepath}`)
           } else {
+            await downloadSubtitle(api, videoItem.bvid, `${title}_P${videoItem.page}_${videoItem.title}`)
+            
             const playurlData = await request_playurl(api, { bvid: videoItem.bvid, cid: videoItem.cid, fnval, qn: quality })
-
             const ouputFilepath = await downloadVideo(api, playurlData, `${title}_P${videoItem.page}_${videoItem.title}`, codecid)
             console.log(`下载完成 ${ouputFilepath}`)
           }
