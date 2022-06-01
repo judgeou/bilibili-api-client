@@ -77,11 +77,24 @@ interface DurlData {
 }
 
 interface DashData {
+  duration: number,
+  min_buffer_time: number,
+
   video: {
+    width: number,
+    height: number,
+    bandwidth: number,
+    frame_rate: string,
     id: number, // Quality
     baseUrl: string,
     codecid: number, // CODECID
     codecs: string,
+    mime_type: string,
+    sar: string,
+    segment_base: {
+      index_range: string,
+      initialization: string
+    }
   }[],
   audio: {
     bandwidth: number,
@@ -89,6 +102,11 @@ interface DashData {
     baseUrl: string,
     codecid: number, // CODECID
     codecs: string,
+    mime_type: string,
+    segment_base: {
+      index_range: string,
+      initialization: string
+    }
   }[]
 }
 
@@ -351,7 +369,7 @@ async function downloadLive (api: AxiosInstance, url: string) {
   }
 }
 
-async function getVideoList (api: AxiosInstance, url: string) : Promise<VideoInfo> {
+async function getVideoListAll (api: AxiosInstance, url: string) : Promise<VideoInfo> {
   let bvid: string
   let result: VideoInfo = {
     title: '',
@@ -372,51 +390,14 @@ async function getVideoList (api: AxiosInstance, url: string) : Promise<VideoInf
         const { episodes } = seasonData
         result.title = seasonData.season_title
 
-        if (episodes.length > 1) {
-          const { pageIndex } = await inquirer.prompt({
-            type: 'rawlist',
-            name: 'pageIndex',
-            message: '请选择需要下载的剧集: ',
-            choices: [
-              {
-                name: '【下载全集】',
-                value: 0
-              },
-              ...episodes.map((item, index) => {
-                return {
-                  name: item.long_title,
-                  value: index + 1
-                }
-              })
-            ]
-          })
-
-          if (pageIndex === 0) {
-            result.list = episodes.map((item, index) => {
-              return {
-                bvid: item.bvid,
-                cid: item.cid,
-                title: item.long_title,
-                page: index + 1
-              }
-            })
-          } else {
-            const ep = episodes[pageIndex - 1]
-            result.list = [{
-              bvid: ep.bvid,
-              cid: ep.cid,
-              title: ep.long_title,
-              page: pageIndex
-            }]
+        result.list = episodes.map((item, index) => {
+          return {
+            bvid: item.bvid,
+            cid: item.cid,
+            title: item.long_title,
+            page: index + 1
           }
-        } else {
-          result.list.push({
-            bvid: episodes[0].bvid,
-            cid: episodes[0].cid,
-            title: episodes[0].long_title,
-            page: 1
-          })
-        }
+        })
       } else {
         throw Error('无效的视频链接')
       }
@@ -429,54 +410,48 @@ async function getVideoList (api: AxiosInstance, url: string) : Promise<VideoInf
 
     result.title = viewInfo.title
 
-    if (pages.length > 1) {
-      const { pageIndex } = await inquirer.prompt({
-        type: 'rawlist',
-        name: 'pageIndex',
-        message: '请选择需要下载的分P: ',
-        choices: [
-          {
-            name: '【下载全部分P】',
-            value: 0
-          },
-          ...pages.map(page => {
-          return {
-            name: `${page.part}`,
-            value: page.page
-          }
-        })]
-      })
-      
-      if (pageIndex === 0) {
-        result.list = pages.map(page => {
-          return {
-            bvid: viewInfo.bvid,
-            cid: page.cid,
-            title: page.part,
-            page: page.page
-          }
-        })
-      } else {
-        const page = pages.find(page => page.page === pageIndex)
-        result.list = [{
-          bvid: viewInfo.bvid,
-          cid: page.cid,
-          title: page.part,
-          page: page.page
-        }]
-      }
-
-    } else if (pages.length === 1) {
-      result.list = [{
+    result.list = pages.map(page => {
+      return {
         bvid: viewInfo.bvid,
-        cid: pages[0].cid,
-        title: viewInfo.title,
-        page: 1
-      }]
-    }
+        cid: page.cid,
+        title: page.part,
+        page: page.page
+      }
+    })
   }
 
   return result
+}
+
+async function getVideoList (api: AxiosInstance, url: string) : Promise<VideoInfo> {
+  let listAll = await getVideoListAll(api, url)
+
+  const { pageIndex } = await inquirer.prompt({
+    type: 'rawlist',
+    name: 'pageIndex',
+    message: '请选择需要下载的分P、剧集: ',
+    choices: [
+      {
+        name: '【下载全部】',
+        value: -1
+      },
+      ...listAll.list.map((item, index) => {
+        return {
+          name: item.title,
+          value: index
+        }
+      })
+    ]
+  })
+
+  if (pageIndex === -1) {
+    return listAll
+  } else {
+    return {
+      title: listAll.title,
+      list: [ listAll.list[pageIndex] ]
+    }
+  }
 }
 
 async function downloadVideo (api: AxiosInstance, playurlInfo: PlayurlData, filename: string, codecid: number) {
@@ -525,6 +500,13 @@ async function downloadVideoDash (api: AxiosInstance, dash: DashData, filename: 
     ext: 'm4s'
   }
   const downloadItems = [...downloadVideoItems, downloadAudioItems]
+
+  // await Promise.all(downloadItems.map(async item => {
+  //   const res1 = await api.get(item.url, { responseType: 'stream', })
+  //   const writer = fs.createWriteStream(item.type + '.m4s', { flags: 'a' })
+
+  //   return pipeline(res1.data, writer)
+  // }))
 
   const responses = await Promise.all(downloadItems.map(async item => {
     const url = item.url
@@ -643,6 +625,9 @@ export {
   getLoginUrlResponse,
   getLoginInfoResponse,
   NavResponse,
+  VideoInfo,
+  VideoItem,
+  PlayurlData,
 
   api_getLoginUrl,
   api_getLoginInfo,
@@ -660,6 +645,7 @@ export {
   bilibiliUrlToBvid,
   bilibiliUrlToEpid,
   getVideoList,
+  getVideoListAll,
   getFnval,
   askCodecId
 }

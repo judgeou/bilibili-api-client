@@ -25,6 +25,15 @@
     {
       "type": "node",
       "request": "launch",
+      "name": "server-debug",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "server-debug"],
+      "sourceMaps": true,
+      "console": "integratedTerminal"
+    },
+    {
+      "type": "node",
+      "request": "launch",
       "name": "Launch Test",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "test-debug"],
