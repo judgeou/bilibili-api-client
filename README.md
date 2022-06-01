@@ -59,6 +59,8 @@ API_PROXY_HOST=api.your-bilibili-proxy.com
 
 提供了一个页面可以直接看哔哩哔哩的视频，需要运行一个 node 服务，用来代理请求。
 
+![](./images/2022-06-01-17-17-09.png)
+
 ```sh
 # 构建播放器前端
 cd src/web-player
