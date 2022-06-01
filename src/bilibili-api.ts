@@ -7,6 +7,7 @@ import * as open from 'open'
 import * as stream from 'stream'
 import * as util from 'util'
 import * as inquirer from 'inquirer'
+import { NavResponse, ViewResponse, PlayurlResponse, SeasonResponse, RoomInitResponse, RoomPlayurlResponse, VideoInfo, PlayurlData, DashData, DurlData, getLoginInfoResponse, getLoginUrlResponse, VideoItem } from './bilibili-api-type'
 import { mergeMedia, playMedia, printOneLine, wait, questionAsync, isFFMPEGInstalled, formatDate, printDownloadInfoLoop } from './toolkit'
 import { resolve } from 'path'
 import { config } from 'dotenv'
@@ -15,174 +16,6 @@ import { jsonSubtitleToAss } from './subtitle'
 config()
 
 const pipeline = util.promisify(stream.pipeline);
-
-interface getLoginUrlResponse {
-  code: number,
-  data: {
-    url: string,
-    oauthKey: string,
-  }
-}
-
-interface getLoginInfoResponse {
-  message: string,
-  status: boolean,
-  data: number | {}
-}
-
-interface NavResponse {
-  code: number,
-  message: string,
-  data: {
-    isLogin: boolean,
-    face: string,
-    level_info: {
-      current_level: number,
-      current_min: number,
-      current_exp: number,
-      next_exp: number,
-    },
-    money: number,
-    uname: string
-  }
-}
-
-interface ViewResponse {
-  code: number,
-  message: string,
-  data: {
-    bvid: string,
-    aid: number,
-    videos: number,
-    title: string,
-    subtitle: {
-      list: {
-        lan: string,
-        lan_doc: string,
-        subtitle_url: string
-      }[]
-    }
-    pages: {
-      cid: number,
-      part: string,
-      page: number
-    }[]
-  }
-}
-
-interface DurlData {
-  order: number,
-  url: string,
-  size: number,
-}
-
-interface DashData {
-  duration: number,
-  min_buffer_time: number,
-
-  video: {
-    width: number,
-    height: number,
-    bandwidth: number,
-    frame_rate: string,
-    id: number, // Quality
-    baseUrl: string,
-    codecid: number, // CODECID
-    codecs: string,
-    mime_type: string,
-    sar: string,
-    segment_base: {
-      index_range: string,
-      initialization: string
-    }
-  }[],
-  audio: {
-    bandwidth: number,
-    id: number, // Quality
-    baseUrl: string,
-    codecid: number, // CODECID
-    codecs: string,
-    mime_type: string,
-    segment_base: {
-      index_range: string,
-      initialization: string
-    }
-  }[]
-}
-
-interface PlayurlData {
-  quality: number,
-  format: string,
-  accept_format: string,
-  accept_description: string[],
-  accept_quality: number[],
-  durl: DurlData[],
-  dash: DashData,
-  support_formats: {
-    codecs: string[],
-    quality: number,
-    new_description: string
-  }[]
-}
-
-interface PlayurlResponse {
-  code: number,
-  message: string,
-  data: PlayurlData
-}
-
-interface SeasonData {
-  season_title: string,
-  evaluate: string,
-  episodes: {
-    bvid: string,
-    cid: number,
-    long_title: string,
-  }[]
-}
-
-interface SeasonResponse {
-  code: number,
-  message: string,
-  result: SeasonData
-}
-
-interface RoomInitResponse {
-  code: number,
-  message: string,
-  data: {
-    room_id: number,
-  }
-}
-
-interface RoomPlayurlResponse {
-  code: number,
-  message: string,
-  data: {
-    current_quality: number,
-    current_qn: number,
-    accept_quality: number[],
-    quality_description: {
-      qn: number,
-      desc: string
-    }[],
-    durl: {
-      url: string
-    }[]
-  }
-}
-
-interface VideoItem {
-  bvid: string,
-  cid: number,
-  title: string,
-  page: number
-}
-
-interface VideoInfo {
-  title: string
-  list: VideoItem[]
-}
 
 const CODECID_AVC = 7
 const CODECID_HEVC = 12
@@ -622,13 +455,6 @@ async function askCodecId () {
 }
 
 export {
-  getLoginUrlResponse,
-  getLoginInfoResponse,
-  NavResponse,
-  VideoInfo,
-  VideoItem,
-  PlayurlData,
-
   api_getLoginUrl,
   api_getLoginInfo,
   api_nav,

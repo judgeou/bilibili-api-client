@@ -1,7 +1,8 @@
 import axios from 'axios'
 import * as fs from 'fs-extra'
 import * as inquirer from 'inquirer'
-import { api_getLoginInfo, api_getLoginUrl, askCodecId, bilibiliUrlToBvid, downloadLive, downloadSubtitle, downloadVideo, getFnval, getLoginInfoResponse, getLoginUrlResponse, getVideoList, isbvid, request_nav, request_playurl, request_view } from './bilibili-api'
+import { getLoginInfoResponse, getLoginUrlResponse } from './bilibili-api-type'
+import { api_getLoginInfo, api_getLoginUrl, askCodecId, bilibiliUrlToBvid, downloadLive, downloadSubtitle, downloadVideo, getFnval, getVideoList, isbvid, request_nav, request_playurl, request_view } from './bilibili-api'
 import { buildPostParam, printOneLine, questionAsync, showQRCodeConsole, wait, isFFMPEGInstalled } from './toolkit'
 
 const referer = "https://www.bilibili.com/"

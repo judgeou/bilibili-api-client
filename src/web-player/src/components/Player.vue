@@ -28,7 +28,7 @@ declare var dashjs: any
 <script lang="ts" setup>
 import { ref, reactive, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import axios from 'axios'
-import { VideoInfo, VideoItem, PlayurlData } from '../../../bilibili-api'
+import { VideoInfo, VideoItem, PlayurlData } from '../../../bilibili-api-type'
 
 const inputUrl = ref('https://www.bilibili.com/bangumi/play/ss41410/')
 

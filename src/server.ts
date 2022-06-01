@@ -12,6 +12,8 @@ const PORT = Number(process.env.PORT || '8080')
 
 let apiAwait = getAuthedApi()
 
+app.use(express.static('./src/web-player/dist'))
+
 app.get('/api/get-video-list', async (req, res) => {
   const { url } = req.query
   const videoList = await getVideoListAll(await apiAwait, url)

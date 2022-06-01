@@ -54,3 +54,20 @@ API_PROXY_HOST=api.your-bilibili-proxy.com
 * 多P：https://www.bilibili.com/video/BV1ia41187a9 BV1Hv4y1N7MU
 * 直播 https://live.bilibili.com/21704811
 * 港澳台新番 https://www.bilibili.com/bangumi/play/ss41492/
+
+## 网页播放器（测试）
+
+提供了一个页面可以直接看哔哩哔哩的视频，需要运行一个 node 服务，用来代理请求。
+
+```sh
+# 构建播放器前端
+cd src/web-player
+npm install
+npm run build
+
+# 运行服务
+cd ../..
+npm install
+npm run server-debug
+
+```
