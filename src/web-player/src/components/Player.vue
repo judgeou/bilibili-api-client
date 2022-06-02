@@ -82,6 +82,10 @@ async function playUrl () {
   let { data } = await axios.get('/api/get-video-list', { params: { url } })
 
   videoList.value = data
+
+  if (videoList.value.list.length > 0) {
+    playPage(videoList.value.list[0])
+  }
 }
 
 async function playPage (page: VideoItem) {
