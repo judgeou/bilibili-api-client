@@ -16,9 +16,13 @@ app.use(express.static('./src/web-player/dist'))
 
 app.get('/api/get-video-list', async (req, res) => {
   const { url } = req.query
-  const videoList = await getVideoListAll(await apiAwait, url)
+  try {
+    const videoList = await getVideoListAll(await apiAwait, url)
 
-  res.json(videoList)
+    res.json(videoList)
+  } catch (error) {
+    res.json({ error: error.toString() })
+  }
 })
 
 app.get('/api/request-playurl', async (req, res) => {

@@ -81,6 +81,11 @@ async function playUrl () {
   const url = inputUrl.value
   let { data } = await axios.get('/api/get-video-list', { params: { url } })
 
+  if (data.error) {
+    alert(data.error)
+    return
+  }
+
   videoList.value = data
 
   if (videoList.value.list.length > 0) {
@@ -90,6 +95,11 @@ async function playUrl () {
 
 async function playPage (page: VideoItem) {
   let { data } = await axios.get('/api/request-playurl', { params: { bvid: page.bvid, cid: page.cid } })
+
+  if (data.error) {
+    alert(data.error)
+    return
+  }
 
   currentItem.value = page
   currentPage.value = data
