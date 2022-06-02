@@ -50,13 +50,13 @@ app.get('/api/request-mpd', async (req, res) => {
     }
   })
 
-  const RepresentationAudio = dash.audio.map(audio => {
+  const RepresentationAudio = dash.audio.map((audio, index) => {
     return {
-      '@id': audio.baseUrl,
+      '@id': index,
       '@codecs': audio.codecs,
       '@bandwidth': audio.bandwidth,
 
-      'BaseURL': { '#': `/api/stream/?url=${encodeURIComponent(audio.baseUrl)}` },
+      'BaseURL': { '#': `/api/stream?url=${encodeURIComponent(audio.baseUrl)}` },
       'SegmentBase': { '@indexRange': audio.segment_base.index_range, '@initialization': audio.segment_base.initialization }
     }
   })
@@ -124,7 +124,9 @@ app.get('/api/stream', async (req, res) => {
 
   res.status(res1.status)
 
-  pipeline(res1.data, res)
+  pipeline(res1.data, res).catch(err => {
+    console.error(err)
+  })
 })
 
 app.listen(PORT, () => {

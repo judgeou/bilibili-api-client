@@ -30,7 +30,7 @@ import { ref, reactive, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import axios from 'axios'
 import { VideoInfo, VideoItem, PlayurlData } from '../../../bilibili-api-type'
 
-const inputUrl = ref('https://www.bilibili.com/bangumi/play/ss41410/')
+const inputUrl = ref('https://www.bilibili.com/video/BV1qM4y1w716')
 
 let videoList = ref({
   title: '无标题',
@@ -65,47 +65,64 @@ async function playPage (page: VideoItem) {
   currentItem.value = page
   currentPage.value = data
 
-  player.attachSource(`/api/request-mpd?bvid=${page.bvid}&cid=${page.cid}`)
-
-  player.updateSettings({
-      streaming: {
-          buffer: {
-              fastSwitchEnabled: true
-          }
-      }
-  });
-
-  player.on(dashjs.MediaPlayer.events.PLAYBACK_TIME_UPDATED, () => {
-    const activeStream = player.getActiveStream()
-    const streamInfo = activeStream.getStreamInfo();
-    const dashMetrics = player.getDashMetrics();
-    const dashAdapter = player.getDashAdapter();
-
-    if (dashMetrics && streamInfo) {
-      const periodIdx = streamInfo.index;
-      var repSwitch = dashMetrics.getCurrentRepresentationSwitch('video', true);
-      var bufferLevel = dashMetrics.getCurrentBufferLevel('video', true);
-      var bitrate = repSwitch ? Math.round(dashAdapter.getBandwidthForRepresentation(repSwitch.to, periodIdx) / 1000) : NaN;
-      var adaptation = dashAdapter.getAdaptationForType(periodIdx, 'video', streamInfo);
-      var currentRep = adaptation.Representation_asArray.find(function (rep: any) {
-          return rep.id === repSwitch.to
-      })
-      var frameRate = currentRep.frameRate;
-      var resolution = currentRep.width + 'x' + currentRep.height;
-      statics.bufferLevel = bufferLevel + " secs";
-      statics.framerate = frameRate + " fps";
-      statics.reportedBitrate = bitrate + " Kbps";
-      statics.resolution = resolution;
-      statics.codecs = currentRep.codecs
+  const dash = currentPage.value?.dash
+  if (dash) {
+    dash.video = dash.video.filter(v => v.codecid === 7)
+    for (let v of dash.video) {
+      const newUrl = `/api/stream?url=${encodeURIComponent(v.baseUrl)}`
+      v.baseUrl = newUrl
+      v.base_url = newUrl
     }
-  })
+
+    for (let a of dash.audio) {
+      const newUrl = `/api/stream?url=${encodeURIComponent(a.baseUrl)}`
+      a.baseUrl = newUrl
+      a.base_url = newUrl
+    }
+  }
+
+  player.initialize(videoEl.value, dash, false, false, undefined)
+
+  // player.attachSource(`/api/request-mpd?bvid=${page.bvid}&cid=${page.cid}`)
+
+  // player.updateSettings({
+  //     streaming: {
+  //         buffer: {
+  //             fastSwitchEnabled: true
+  //         }
+  //     }
+  // });
+
+  // player.on(dashjs.MediaPlayer.events.PLAYBACK_TIME_UPDATED, () => {
+  //   const activeStream = player.getActiveStream()
+  //   const streamInfo = activeStream.getStreamInfo();
+  //   const dashMetrics = player.getDashMetrics();
+  //   const dashAdapter = player.getDashAdapter();
+
+  //   if (dashMetrics && streamInfo) {
+  //     const periodIdx = streamInfo.index;
+  //     var repSwitch = dashMetrics.getCurrentRepresentationSwitch('video', true);
+  //     var bufferLevel = dashMetrics.getCurrentBufferLevel('video', true);
+  //     var bitrate = repSwitch ? Math.round(dashAdapter.getBandwidthForRepresentation(repSwitch.to, periodIdx) / 1000) : NaN;
+  //     var adaptation = dashAdapter.getAdaptationForType(periodIdx, 'video', streamInfo);
+  //     var currentRep = adaptation.Representation_asArray.find(function (rep: any) {
+  //         return rep.id === repSwitch.to
+  //     })
+  //     var frameRate = currentRep.frameRate;
+  //     var resolution = currentRep.width + 'x' + currentRep.height;
+  //     statics.bufferLevel = bufferLevel + " secs";
+  //     statics.framerate = frameRate + " fps";
+  //     statics.reportedBitrate = bitrate + " Kbps";
+  //     statics.resolution = resolution;
+  //     statics.codecs = currentRep.codecs
+  //   }
+  // })
 }
 
 onMounted(() => {
   const videoElv = videoEl.value
   if (videoElv) {
-    player = dashjs.MediaPlayer().create()
-    player.initialize(videoElv)
+    window.player = player = dashjs.MediaPlayer().create()
   }
 })
 
