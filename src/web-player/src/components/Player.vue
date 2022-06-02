@@ -22,6 +22,10 @@
     </div>
 
     <div>
+      分辨率：{{ statics.resolution }}
+    </div>
+
+    <div>
       <video ref="videoEl" autoplay preload="none" controls="true">
       </video>
     </div>
@@ -33,7 +37,7 @@ declare var dashjs: any
 </script>
 
 <script lang="ts" setup>
-import { ref, reactive, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import axios from 'axios'
 import { VideoInfo, VideoItem, PlayurlData } from '../../../bilibili-api-type'
 
@@ -49,6 +53,8 @@ const CODEC_MAP = {
 
 const inputUrl = ref('https://www.bilibili.com/video/BV1qM4y1w716')
 
+let perferCodecLocal = localStorage.getItem('BILIBILI_PLAYER_PERFER_CODEC') || 7
+
 let videoList = ref({
   title: '无标题',
   list: []
@@ -57,7 +63,7 @@ let videoList = ref({
 let videoEl = ref<HTMLVideoElement>()
 let currentItem = ref<VideoItem>()
 let currentPage = ref<PlayurlData>()
-let perferCodec = ref(7)
+let perferCodec = ref(Number(perferCodecLocal))
 let currentCodec = ref(0)
 let player: any
 let isRunning = true
@@ -110,14 +116,12 @@ async function playPage (page: VideoItem) {
     }
   }
 
-  player.initialize(videoEl.value, dash, false, false, undefined)
+  player.attachSource(dash)
   player.setABRStrategy('abrDynamic')
   player.setFastSwitchEnabled(!0)
   player.enableLastBitrateCaching(!0)
   player.setBufferPruningInterval(20)
   player.setJumpGaps(!0)
-
-
 }
 
 function updateVideoState () {
@@ -135,16 +139,24 @@ function updateVideoStateLoop () {
 
 updateVideoStateLoop()
 
+watch(perferCodec, (newValue) => {
+  localStorage.setItem('BILIBILI_PLAYER_PERFER_CODEC', newValue.toString())
+})
+
 onMounted(() => {
   const videoElv = videoEl.value
   if (videoElv) {
     player = dashjs.MediaPlayer().create()
+    player.initialize(videoEl.value)
+
+    videoElv.addEventListener('resize', () => {
+      statics.resolution = `${videoElv.videoWidth} x ${videoElv.videoHeight}`
+    })
   }
 })
 
 onBeforeUnmount(() => {
   isRunning = false
-  player.reset()
 })
 
 function wait (ms: number) {
