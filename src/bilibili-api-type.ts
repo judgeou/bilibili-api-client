@@ -69,6 +69,7 @@ export interface DashData {
     frame_rate: string,
     id: number, // Quality
     baseUrl: string,
+    base_url: string,
     codecid: number, // CODECID
     codecs: string,
     mime_type: string,
@@ -82,6 +83,7 @@ export interface DashData {
     bandwidth: number,
     id: number, // Quality
     baseUrl: string,
+    base_url: string,
     codecid: number, // CODECID
     codecs: string,
     mime_type: string,

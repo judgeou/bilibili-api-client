@@ -11,7 +11,18 @@
     </div>
 
     <div>
-      {{ statics }}
+      视频编码：
+      <select v-model="perferCodec">
+        <option :value="7">avc</option>
+        <option :value="12">hevc</option>
+        <option :value="13">av1</option>
+      </select>
+
+      <span v-if="currentCodec > 0" style="margin-left: 1em;">实际编码：{{ CODEC_MAP[currentCodec] }}</span>
+    </div>
+
+    <div>
+      分辨率：{{ statics.resolution }}
     </div>
 
     <div>
@@ -26,11 +37,23 @@ declare var dashjs: any
 </script>
 
 <script lang="ts" setup>
-import { ref, reactive, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import axios from 'axios'
 import { VideoInfo, VideoItem, PlayurlData } from '../../../bilibili-api-type'
 
-const inputUrl = ref('https://www.bilibili.com/bangumi/play/ss41410/')
+const CODECID_AVC = 7
+const CODECID_HEVC = 12
+const CODECID_AV1 = 13
+
+const CODEC_MAP = {
+  [CODECID_AVC.toString()]: 'avc',
+  [CODECID_HEVC.toString()]: 'hevc',
+  [CODECID_AV1.toString()]: 'av1'
+}
+
+const inputUrl = ref('https://www.bilibili.com/video/BV1qM4y1w716')
+
+let perferCodecLocal = localStorage.getItem('BILIBILI_PLAYER_PERFER_CODEC') || 7
 
 let videoList = ref({
   title: '无标题',
@@ -40,6 +63,8 @@ let videoList = ref({
 let videoEl = ref<HTMLVideoElement>()
 let currentItem = ref<VideoItem>()
 let currentPage = ref<PlayurlData>()
+let perferCodec = ref(Number(perferCodecLocal))
+let currentCodec = ref(0)
 let player: any
 let isRunning = true
 
@@ -56,64 +81,103 @@ async function playUrl () {
   const url = inputUrl.value
   let { data } = await axios.get('/api/get-video-list', { params: { url } })
 
+  if (data.error) {
+    alert(data.error)
+    return
+  }
+
   videoList.value = data
+
+  if (videoList.value.list.length > 0) {
+    playPage(videoList.value.list[0])
+  }
 }
 
 async function playPage (page: VideoItem) {
   let { data } = await axios.get('/api/request-playurl', { params: { bvid: page.bvid, cid: page.cid } })
 
+  if (data.error) {
+    alert(data.error)
+    return
+  }
+
   currentItem.value = page
   currentPage.value = data
 
-  player.attachSource(`/api/request-mpd?bvid=${page.bvid}&cid=${page.cid}`)
+  const dash = currentPage.value?.dash
+  if (dash) {
+    let video = dash.video.filter(v => v.codecid === perferCodec.value)
 
-  player.updateSettings({
-      streaming: {
-          buffer: {
-              fastSwitchEnabled: true
-          }
-      }
-  });
-
-  player.on(dashjs.MediaPlayer.events.PLAYBACK_TIME_UPDATED, () => {
-    const activeStream = player.getActiveStream()
-    const streamInfo = activeStream.getStreamInfo();
-    const dashMetrics = player.getDashMetrics();
-    const dashAdapter = player.getDashAdapter();
-
-    if (dashMetrics && streamInfo) {
-      const periodIdx = streamInfo.index;
-      var repSwitch = dashMetrics.getCurrentRepresentationSwitch('video', true);
-      var bufferLevel = dashMetrics.getCurrentBufferLevel('video', true);
-      var bitrate = repSwitch ? Math.round(dashAdapter.getBandwidthForRepresentation(repSwitch.to, periodIdx) / 1000) : NaN;
-      var adaptation = dashAdapter.getAdaptationForType(periodIdx, 'video', streamInfo);
-      var currentRep = adaptation.Representation_asArray.find(function (rep: any) {
-          return rep.id === repSwitch.to
-      })
-      var frameRate = currentRep.frameRate;
-      var resolution = currentRep.width + 'x' + currentRep.height;
-      statics.bufferLevel = bufferLevel + " secs";
-      statics.framerate = frameRate + " fps";
-      statics.reportedBitrate = bitrate + " Kbps";
-      statics.resolution = resolution;
-      statics.codecs = currentRep.codecs
+    if (video.length === 0) {
+      video = dash.video.filter(v => v.codecid === 7)
+      currentCodec.value = 7
+    } else {
+      currentCodec.value = perferCodec.value
     }
-  })
+
+    dash.video = video
+
+    for (let v of video) {
+      const newUrl = `/api/stream?url=${encodeURIComponent(v.baseUrl)}`
+      v.baseUrl = newUrl
+      v.base_url = newUrl
+    }
+
+    for (let a of dash.audio) {
+      const newUrl = `/api/stream?url=${encodeURIComponent(a.baseUrl)}`
+      a.baseUrl = newUrl
+      a.base_url = newUrl
+    }
+  }
+
+  player.attachSource(dash)
+  player.setABRStrategy('abrDynamic')
+  player.setFastSwitchEnabled(!0)
+  player.enableLastBitrateCaching(!0)
+  player.setBufferPruningInterval(20)
+  player.setJumpGaps(!0)
 }
+
+function updateVideoState () {
+  if (player) {
+
+  }
+}
+
+function updateVideoStateLoop () {
+  if (isRunning) {
+    updateVideoState()
+    setTimeout(updateVideoStateLoop, 1000)
+  }
+}
+
+updateVideoStateLoop()
+
+watch(perferCodec, (newValue) => {
+  localStorage.setItem('BILIBILI_PLAYER_PERFER_CODEC', newValue.toString())
+})
 
 onMounted(() => {
   const videoElv = videoEl.value
   if (videoElv) {
     player = dashjs.MediaPlayer().create()
-    player.initialize(videoElv)
+    player.initialize(videoEl.value)
+
+    videoElv.addEventListener('resize', () => {
+      statics.resolution = `${videoElv.videoWidth} x ${videoElv.videoHeight}`
+    })
   }
 })
 
 onBeforeUnmount(() => {
   isRunning = false
-  player.reset()
 })
 
+function wait (ms: number) {
+  return new Promise(resolve => {
+    setTimeout(resolve, ms)
+  })
+}
 </script>
 
 <style scoped>
