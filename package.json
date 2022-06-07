@@ -4,7 +4,8 @@
 		"dev-debug": "nodemon --exec \"node --require ts-node/register --inspect=9229 src/index.ts\"",
 		"test-debug": "nodemon --exec \"node --require ts-node/register --inspect=9229 test/json-to-ass.ts\"",
 		"start": "ts-node src/index.ts",
-		"server-debug": "nodemon --exec \"node --require ts-node/register --inspect=9229 src/server.ts\""
+		"server-debug": "nodemon --exec \"node --require ts-node/register --inspect=9229 src/server.ts\"",
+		"start-server": "ts-node src/server.ts"
 	},
 	"dependencies": {
 		"@types/node": "*",
