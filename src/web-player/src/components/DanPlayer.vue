@@ -3,6 +3,7 @@
     <div>
       <input type="file" ref="fileEl" @change="fileChange" />
       <button @click="destroyVideo">停止播放</button>
+      <button @click="toggleFullscreen">全屏</button>
     </div>
     <div v-if="dandanMatches.length > 0">
       选择弹幕：
@@ -11,8 +12,8 @@
       </select>
       <span v-if="danmakuCount > 0">弹幕已载入，数量：{{ danmakuCount }}</span>
     </div>
-    <div v-if="videoSrc" ref="videoContainer" style="width: 50vw; height: 50vh; position: relative;">
-      <video style="width: 50vw; height: 50vh; position: absolute;" ref="videoEl" :src="videoSrc" controls></video>
+    <div v-if="videoSrc" ref="videoContainer" class="videoContainer" @fullscreenchange="resizeContainer">
+      <video ref="videoEl" :src="videoSrc" controls></video>
     </div>
   </div>
 </template>
@@ -69,6 +70,14 @@ watch(dandanMatchesSelected, (newVal) => {
     loadDanmaku(newVal)
   }
 })
+
+function toggleFullscreen () {
+  videoContainer.value!.requestFullscreen()
+}
+
+function resizeContainer () {
+  danmaku.resize()
+}
 
 function getFileHash (file: File) {
   return new Promise((resolve, reject) => {
@@ -175,5 +184,22 @@ async function destroyVideo () {
 </script>
 
 <style scoped>
+.videoContainer {
+  width: 50vw;
+  height: 65vh;
+  position: relative;
+}
+.videoContainer:fullscreen {
+  width: 100vw;
+  height: 100vh;
+}
+.videoContainer video {
+  width: 100%;
+  height: auto;
+  position: absolute;
 
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
 </style>
