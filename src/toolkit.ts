@@ -5,7 +5,13 @@ import * as open from 'open'
 import * as readline from 'readline'
 import * as path from 'path'
 import * as fs from 'fs-extra'
+import * as http from 'http'
+import * as stream from 'stream'
+import * as util from 'util'
+import { AddressInfo } from 'net'
 import { spawn } from 'child_process'
+
+const pipeline = util.promisify(stream.pipeline);
 
 let ffmpeg_bin_path = 'ffmpeg'
 
@@ -121,14 +127,14 @@ async function isFFMPEGInstalled () : Promise<boolean> {
   })
 }
 
-async function mergeMedia (mediaFilepaths: string[], outputFilepath: string) {
+async function mergeMedia (mediaFilepaths: string[], outputFilepath: string, exArgs: string[] = []) {
   return new Promise((resolve, reject) => {
-    let args = ['-v', 'error']
+    let args = ['-v', 'info']
     for (const mediaFilepath of mediaFilepaths) {
       args.push('-i')
       args.push(mediaFilepath)
     }
-    args = [...args, '-c', 'copy', '-y', outputFilepath]
+    args = [...args, '-c', 'copy', ...exArgs , '-y', outputFilepath]
     const ffmpeg = spawn(ffmpeg_bin_path, args)
   
     ffmpeg.stdout.pipe(process.stdout)
@@ -183,17 +189,53 @@ async function playMedia (mediaFilepaths: string[]) {
   })
 }
 
+async function streamCodecCopy (input: any, outputFilepath: string, exArgs: string[] = []) {
+  const server = http.createServer((req, res) => {
+    pipeline(input, res).catch(async err => {
+      await fs.remove(outputFilepath)
+    })
+  })
+
+  const addressInfo = await new Promise<AddressInfo>(resolve => {
+    server.listen(0, () => {
+      const addressInfo = server.address() as AddressInfo
+      resolve(addressInfo)
+    })
+  })
+
+  return mergeMedia([ `http://localhost:${addressInfo.port}`], outputFilepath, exArgs)
+}
+
+async function getMediaInfo (filepath: string) {
+  return new Promise((resolve, reject) => {
+    let args = ['-i', filepath]
+    const ffmpeg = spawn(ffmpeg_bin_path, args)
+  
+    const out = ffmpeg.stdout
+    const chunks = []
+    out.on('data', chunk => {
+      chunks.push(chunk)
+    })
+    out.on('end', () => {
+      resolve(Buffer.concat(chunks).toString('utf8'))
+    })
+    out.on('error', reject)
+  })
+}
+
 export {
   buildFormData,
   buildPostParam,
   formatDate,
   mergeMedia,
   playMedia,
+  getMediaInfo,
   openQRCodeBrowser,
   printOneLine,
   questionAsync,
   showQRCodeConsole,
   showQRCodeFile,
+  streamCodecCopy,
   wait,
   isFFMPEGInstalled,
   printDownloadInfoLoop
