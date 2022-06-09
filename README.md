@@ -61,6 +61,10 @@ API_PROXY_HOST=api.your-bilibili-proxy.com
 
 ![](./images/2022-06-01-17-17-09.png)
 
+此外，[dan-player.html](./src/web-player/dan-player.html) 可以播放本地视频，并且请求 弹弹play 的api获得弹幕
+
+![](./images/2022-06-09-17-38-35.png)
+
 ```sh
 # 构建播放器前端
 cd src/web-player
