@@ -4,10 +4,12 @@
       <input type="file" ref="fileEl" @change="fileChange" />
       <button @click="destroyVideo">停止播放</button>
     </div>
-    <div>
-      选择弹幕：<select v-if="dandanMatches.length > 0" v-model="dandanMatchesSelected">
+    <div v-if="dandanMatches.length > 0">
+      选择弹幕：
+      <select v-model="dandanMatchesSelected">
         <option v-for="m in dandanMatches" :key="m.episodeId" :value="m.episodeId">{{ `${m.animeTitle} - ${m.episodeTitle}` }}</option>
       </select>
+      <span v-if="danmakuCount > 0">弹幕已载入，数量：{{ danmakuCount }}</span>
     </div>
     <div v-if="videoSrc" ref="videoContainer" style="width: 50vw; height: 50vh; position: relative;">
       <video style="width: 50vw; height: 50vh; position: absolute;" ref="videoEl" :src="videoSrc" controls></video>
@@ -59,6 +61,7 @@ const matchInfo = ref({
 })
 const dandanMatches = ref<DanDanMatch[]>([])
 const dandanMatchesSelected = ref(-1)
+const danmakuCount = ref(0)
 let danmaku: Danmaku
 
 watch(dandanMatchesSelected, (newVal) => {
@@ -104,8 +107,10 @@ async function loadDanmakuList () {
 }
 
 async function loadDanmaku (episodeId: number) {
+  danmakuCount.value = 0
   const res2 = await axios.get(`/dandan-api/comment/${episodeId}`, { params: { withRelated: true }})
   const commentsResult = res2.data as CommentsResponse
+  danmakuCount.value = commentsResult.count
 
   const defaultStyle = {
     fontSize: '20px',
