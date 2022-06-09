@@ -12,7 +12,7 @@
       </select>
       <span v-if="danmakuCount > 0">弹幕已载入，数量：{{ danmakuCount }}</span>
     </div>
-    <div v-if="videoSrc" ref="videoContainer" class="videoContainer" @fullscreenchange="resizeContainer">
+    <div v-if="videoSrc" ref="videoContainer" class="videoContainer" @fullscreenchange="resizeContainer" @webkitfullscreenchange="resizeContainer">
       <video ref="videoEl" :src="videoSrc" controls></video>
     </div>
   </div>
@@ -72,7 +72,11 @@ watch(dandanMatchesSelected, (newVal) => {
 })
 
 function toggleFullscreen () {
-  videoContainer.value!.requestFullscreen()
+  try { 
+    videoContainer.value!.requestFullscreen()
+  } catch {
+    (videoContainer.value! as any).webkitRequestFullscreen()
+  }
 }
 
 function resizeContainer () {
@@ -122,9 +126,11 @@ async function loadDanmaku (episodeId: number) {
   danmakuCount.value = commentsResult.count
 
   const defaultStyle = {
-    fontSize: '20px',
+    'font-family': 'SimHei, Arial, Helvetica, sans-serif',
+    fontSize: '30px',
     color: '#ffffff',
-    textShadow: '-1px -1px #000, -1px 1px #000, 1px -1px #000, 1px 1px #000'
+    textShadow: '-1px -1px #000, -1px 1px #000, 1px -1px #000, 1px 1px #000',
+    'font-weight': 'normal'
   }
   const comments = commentsResult.comments.slice(0, 5000).map(c => {
     const [ time ] = c.p.split(',')
@@ -190,6 +196,10 @@ async function destroyVideo () {
   position: relative;
 }
 .videoContainer:fullscreen {
+  width: 100vw;
+  height: 100vh;
+}
+.videoContainer:-webkit-full-screen {
   width: 100vw;
   height: 100vh;
 }
