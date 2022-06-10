@@ -27,6 +27,8 @@
       </select>
 
       <span v-if="currentCodec > 0" style="margin-left: 1em;">实际编码：{{ CODEC_MAP[currentCodec] }}</span>
+
+      <label><input type="checkbox" v-model="isBestQuality" /> 强制最高分辨率</label>
     </div>
 
     <div>
@@ -97,6 +99,7 @@ let currentItem = ref<VideoItem>()
 let currentPage = ref<PlayurlData>()
 let perferCodec = ref(Number(perferCodecLocal))
 let currentCodec = ref(0)
+let isBestQuality = ref(false)
 let useProxy = ref(false)
 let proxyUrl = ref(localStorage.getItem('BILIBILI_PLAYER_PROXY_URL') || '')
 let danmakuCount = ref(0)
@@ -219,6 +222,11 @@ async function playPage (page: VideoItem) {
       currentCodec.value = 7
     } else {
       currentCodec.value = perferCodec.value
+    }
+
+    if (isBestQuality.value) {
+      const bestWidth = Math.max(...video.map(v => v.width))
+      video = video.filter(v => v.width === bestWidth)
     }
 
     dash.video = video
