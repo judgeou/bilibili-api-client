@@ -41,6 +41,10 @@ const api_season = API_PROXY_HOST ? `https://${API_PROXY_HOST}/pgc/view/web/seas
 const api_room_init = 'https://api.live.bilibili.com/room/v1/Room/room_init'
 const api_room_playurl = 'https://api.live.bilibili.com/room/v1/Room/playUrl'
 
+function makeProxyUrl (url: string, proxyUrl: string) {
+  return url.replace('api.bilibili.com', proxyUrl)
+}
+
 function isbvid (str: string) {
   return /^BV\w{10}$/.test(str)
 }
@@ -113,9 +117,9 @@ async function request_playurl (api: AxiosInstance, param: {
   cid: number,
   qn?: number,
   fnval?: number
-}) {
+}, proxyUrl: string = null) {
   const params = Object.assign({ qn: 112, fnval: 0, fnver: 0, fourk: 1 }, param)
-  const res1 = await api.get(api_playurl, { params })
+  const res1 = await api.get(makeProxyUrl(api_playurl, proxyUrl), { params })
   const data1 = res1.data as PlayurlResponse
 
   if (data1.code === 0) {
@@ -125,8 +129,8 @@ async function request_playurl (api: AxiosInstance, param: {
   }
 }
 
-async function request_season (api: AxiosInstance, params: { ep_id?: number, season_id?: number }) {
-  const res1 = await api.get(api_season, { params })
+async function request_season (api: AxiosInstance, params: { ep_id?: number, season_id?: number }, proxyUrl: string = null) {
+  const res1 = await api.get(proxyUrl ? makeProxyUrl(api_season, proxyUrl) : api_season, { params })
   const data1 = res1.data as SeasonResponse
 
   if (data1.code === 0) {
@@ -202,7 +206,7 @@ async function downloadLive (api: AxiosInstance, url: string) {
   }
 }
 
-async function getVideoListAll (api: AxiosInstance, url: string) : Promise<VideoInfo> {
+async function getVideoListAll (api: AxiosInstance, url: string, proxyUrl: string = null) : Promise<VideoInfo> {
   let bvid: string
   let result: VideoInfo = {
     title: '',
@@ -219,7 +223,7 @@ async function getVideoListAll (api: AxiosInstance, url: string) : Promise<Video
       const season_id = bilibiliUrlToSeasonId(url) ? Number(bilibiliUrlToSeasonId(url)) : null
 
       if (epid || season_id) {
-        const seasonData = await request_season(api, { ep_id: epid, season_id })
+        const seasonData = await request_season(api, { ep_id: epid, season_id }, proxyUrl)
         const { episodes } = seasonData
         result.title = seasonData.season_title
 

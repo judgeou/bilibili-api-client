@@ -101,9 +101,9 @@ app.get('/api/get-mp4/:filename', async (req, res) => {
 })
 
 app.get('/api/get-video-list', async (req, res) => {
-  const { url } = req.query
+  const { url, useProxy, proxyUrl } = req.query
   try {
-    const videoList = await getVideoListAll(await apiAwait, url)
+    const videoList = await getVideoListAll(await apiAwait, url, Boolean(useProxy) ? proxyUrl : undefined)
 
     res.json(videoList)
   } catch (error) {
@@ -112,9 +112,9 @@ app.get('/api/get-video-list', async (req, res) => {
 })
 
 app.get('/api/request-playurl', async (req, res) => {
-  const { bvid, cid } = req.query
+  const { bvid, cid, useProxy, proxyUrl } = req.query
   const fnval = 4048
-  const playurlData = await request_playurl(await apiAwait, { bvid, cid, fnval })
+  const playurlData = await request_playurl(await apiAwait, { bvid, cid, fnval }, Boolean(useProxy) ? proxyUrl : undefined)
 
   res.json(playurlData)
 })

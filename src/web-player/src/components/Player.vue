@@ -1,7 +1,8 @@
 <template>
   <div>
     输入哔哩哔哩网址：<input type="text" style="width: 30em;" v-model="inputUrl"> <button @click="playUrl">播放</button>
-
+    <label> <input type="checkbox" v-model="useProxy" /> 使用代理 </label>
+    <input type="text" v-if="useProxy" placeholder="填写代理地址" v-model="proxyUrl" />
     <h2>{{ videoList.title }}</h2>
 
     <div>
@@ -51,7 +52,7 @@ const CODEC_MAP = {
   [CODECID_AV1.toString()]: 'av1'
 }
 
-const inputUrl = ref('https://www.bilibili.com/video/BV1qM4y1w716')
+const inputUrl = ref('https://www.bilibili.com/bangumi/play/ss41492/')
 
 let perferCodecLocal = localStorage.getItem('BILIBILI_PLAYER_PERFER_CODEC') || 7
 
@@ -65,6 +66,8 @@ let currentItem = ref<VideoItem>()
 let currentPage = ref<PlayurlData>()
 let perferCodec = ref(Number(perferCodecLocal))
 let currentCodec = ref(0)
+let useProxy = ref(false)
+let proxyUrl = ref('')
 let player: any
 let isRunning = true
 
@@ -79,7 +82,11 @@ const statics = reactive({
 /* Methods */
 async function playUrl () {
   const url = inputUrl.value
-  let { data } = await axios.get('/api/get-video-list', { params: { url } })
+  let { data } = await axios.get('/api/get-video-list', { params: {
+    url,
+    useProxy: useProxy.value,
+    proxyUrl: proxyUrl.value
+  } })
 
   if (data.error) {
     alert(data.error)
@@ -94,7 +101,12 @@ async function playUrl () {
 }
 
 async function playPage (page: VideoItem) {
-  let { data } = await axios.get('/api/request-playurl', { params: { bvid: page.bvid, cid: page.cid } })
+  let { data } = await axios.get('/api/request-playurl', { params: {
+    bvid: page.bvid,
+    cid: page.cid,
+    useProxy: useProxy.value,
+    proxyUrl: proxyUrl.value
+  } })
 
   if (data.error) {
     alert(data.error)
