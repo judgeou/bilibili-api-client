@@ -19,8 +19,8 @@
 </template>
 
 <script setup lang="ts">
-import '../../global.d.ts'
 import { ref, onMounted, nextTick, watch } from 'vue'
+// @ts-ignore
 import sparkMd5 from 'spark-md5'
 import axios from 'axios'
 import Danmaku from 'danmaku'

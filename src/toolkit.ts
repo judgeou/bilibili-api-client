@@ -15,6 +15,10 @@ const pipeline = util.promisify(stream.pipeline);
 
 let ffmpeg_bin_path = 'ffmpeg'
 
+function toBoolean (str: string) {
+  return str === 'true'
+}
+
 function formatDate (date: Date) {
   const year = date.getFullYear()
   const month = date.getMonth() + 1
@@ -238,5 +242,6 @@ export {
   streamCodecCopy,
   wait,
   isFFMPEGInstalled,
-  printDownloadInfoLoop
+  printDownloadInfoLoop,
+  toBoolean
 }

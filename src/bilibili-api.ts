@@ -1,21 +1,23 @@
-import { AxiosInstance } from 'axios'
+import axios, { AxiosInstance } from 'axios'
 import * as http from 'http'
 import { AddressInfo } from 'net'
 import * as fs from 'fs-extra'
 import * as path from 'path'
-import * as open from 'open'
 import * as stream from 'stream'
 import * as util from 'util'
 import * as inquirer from 'inquirer'
-import { NavResponse, ViewResponse, PlayurlResponse, SeasonResponse, RoomInitResponse, RoomPlayurlResponse, VideoInfo, PlayurlData, DashData, DurlData, getLoginInfoResponse, getLoginUrlResponse, VideoItem } from './bilibili-api-type'
+import { NavResponse, ViewResponse, PlayurlResponse, SeasonResponse, RoomInitResponse, RoomPlayurlResponse, VideoInfo, PlayurlData, DashData, DurlData, DmSegMobileReply, DanmakuElem } from './bilibili-api-type'
 import { mergeMedia, playMedia, printOneLine, wait, questionAsync, isFFMPEGInstalled, formatDate, printDownloadInfoLoop } from './toolkit'
 import { resolve } from 'path'
 import { config } from 'dotenv'
+import * as protobuf from 'protobufjs'
 import { jsonSubtitleToAss } from './subtitle'
 
 config()
 
 const pipeline = util.promisify(stream.pipeline);
+
+const dmProtoAwait = protobuf.load(resolve(__dirname, './dm.proto'))
 
 const CODECID_AVC = 7
 const CODECID_HEVC = 12
@@ -86,6 +88,18 @@ function bilibiliUrlToLiveid (url: string) {
     return match[1]
   } else {
     return null
+  }
+}
+
+async function request_dm (api: AxiosInstance, params: { oid: string, type: number, segment_index: number }): Promise<DanmakuElem[]> {
+  try {
+    const res = await api.get('http://api.bilibili.com/x/v2/dm/web/seg.so', { params, responseType: 'arraybuffer' })
+    const t = (await dmProtoAwait).lookupTypeOrEnum('bilibili.community.service.dm.v1.DmSegMobileReply')
+    const msg = t.decode(res.data)
+    const obj = t.toObject(msg) as DmSegMobileReply
+    return obj.elems
+  } catch {
+    return []
   }
 }
 
@@ -467,6 +481,7 @@ export {
   request_nav,
   request_view,
   request_playurl,
+  request_dm,
 
   downloadLive,
   downloadVideo,

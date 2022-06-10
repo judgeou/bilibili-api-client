@@ -68,6 +68,8 @@ export interface DashData {
     bandwidth: number,
     frame_rate: string,
     id: number, // Quality
+    backupUrl: string[],
+    backup_url: string[],
     baseUrl: string,
     base_url: string,
     codecid: number, // CODECID
@@ -82,6 +84,8 @@ export interface DashData {
   audio: {
     bandwidth: number,
     id: number, // Quality
+    backupUrl: string[],
+    backup_url: string[],
     baseUrl: string,
     base_url: string,
     codecid: number, // CODECID
@@ -166,4 +170,17 @@ export interface VideoItem {
 export interface VideoInfo {
   title: string
   list: VideoItem[]
+}
+
+export interface DanmakuElem {
+  color: number,
+  content: string,
+  fontsize: number,
+  mode: number,
+  progress: number,
+  weight: number,
+}
+
+export interface DmSegMobileReply {
+  elems: DanmakuElem[]
 }

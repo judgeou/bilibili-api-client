@@ -3,7 +3,7 @@
     输入哔哩哔哩网址：<input type="text" style="width: 30em;" v-model="inputUrl"> <button @click="playUrl">播放</button>
     <label> <input type="checkbox" v-model="useProxy" /> 使用代理 </label>
     <input type="text" v-if="useProxy" placeholder="填写代理地址" v-model="proxyUrl" />
-    <h2>{{ videoList.title }}</h2>
+    <h2 v-if="videoList.title">{{ videoList.title }}</h2>
 
     <div>
       <div v-for="page in videoList.list" @click="playPage(page)" class="page-item" :class="{ 'selected': currentItem === page }">
@@ -23,11 +23,16 @@
     </div>
 
     <div>
-      分辨率：{{ statics.resolution }}
+      分辨率：{{ statics.resolution }} 弹幕数量：{{ danmakuCount }}
     </div>
 
     <div>
-      <video ref="videoEl" autoplay preload="none" controls="true">
+      <button @click="toggleFullscreen">全屏</button>
+    </div>
+
+    <div ref="videoContainer" class="videoContainer" @fullscreenchange="resizeContainer" @webkitfullscreenchange="resizeContainer">
+      <video ref="videoEl" autoplay preload="none" controls="true"
+        @resize="videoResize">
       </video>
     </div>
   </div>
@@ -38,9 +43,10 @@ declare var dashjs: any
 </script>
 
 <script lang="ts" setup>
-import { ref, reactive, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, reactive, nextTick, onMounted, onBeforeUnmount, watch, computed } from 'vue'
 import axios from 'axios'
-import { VideoInfo, VideoItem, PlayurlData } from '../../../bilibili-api-type'
+import Danmaku from 'danmaku'
+import { VideoInfo, VideoItem, PlayurlData, DanmakuElem } from '../../../bilibili-api-type'
 
 const CODECID_AVC = 7
 const CODECID_HEVC = 12
@@ -56,20 +62,29 @@ const inputUrl = ref('https://www.bilibili.com/bangumi/play/ss41492/')
 
 let perferCodecLocal = localStorage.getItem('BILIBILI_PLAYER_PERFER_CODEC') || 7
 
+/** DATA */
 let videoList = ref({
-  title: '无标题',
+  title: '',
   list: []
 } as VideoInfo)
 
 let videoEl = ref<HTMLVideoElement>()
+const videoContainer = ref<HTMLDivElement>()
+const videoSize = ref({
+  width: 0,
+  height: 0
+})
+
 let currentItem = ref<VideoItem>()
 let currentPage = ref<PlayurlData>()
 let perferCodec = ref(Number(perferCodecLocal))
 let currentCodec = ref(0)
 let useProxy = ref(false)
 let proxyUrl = ref(localStorage.getItem('BILIBILI_PLAYER_PROXY_URL') || '')
+let danmakuCount = ref(0)
 let player: any
 let isRunning = true
+let danmaku: Danmaku
 
 const statics = reactive({
   bufferLevel: '',
@@ -77,6 +92,16 @@ const statics = reactive({
   reportedBitrate: '',
   resolution: '',
   codecs: ''
+})
+
+/** COMPUTED */
+const videoContainerSize = computed(() => {
+  const width = 576
+  const ratio = videoSize.value.width > 0 ? videoSize.value.height / videoSize.value.width : 9 / 16
+  return {
+    width,
+    height: width * ratio
+  }
 })
 
 /* Methods */
@@ -95,7 +120,7 @@ async function playUrl () {
 
   videoList.value = data
 
-  if (videoList.value.list.length > 0) {
+  if (videoList.value.list.length === 1) {
     playPage(videoList.value.list[0])
   }
 
@@ -138,12 +163,16 @@ async function playPage (page: VideoItem) {
       const newUrl = `/api/stream?url=${encodeURIComponent(v.baseUrl)}`
       v.baseUrl = newUrl
       v.base_url = newUrl
+
+      v.backup_url = v.backupUrl = v.backupUrl.map(item => `/api/stream?url=${encodeURIComponent(item)}`)
     }
 
     for (let a of dash.audio) {
       const newUrl = `/api/stream?url=${encodeURIComponent(a.baseUrl)}`
       a.baseUrl = newUrl
       a.base_url = newUrl
+
+      a.backup_url = a.backupUrl = a.backupUrl.map(item => `/api/stream?url=${encodeURIComponent(item)}`)
     }
   }
 
@@ -153,6 +182,80 @@ async function playPage (page: VideoItem) {
   player.enableLastBitrateCaching(!0)
   player.setBufferPruningInterval(20)
   player.setJumpGaps(!0)
+
+  loadDanmaku()
+}
+
+function initDanmaku () {
+  const defaultStyle = {
+    'font-family': 'SimHei, Arial, Helvetica, sans-serif',
+    fontSize: '30px',
+    color: '#ffffff',
+    textShadow: '-1px -1px #000, -1px 1px #000, 1px -1px #000, 1px 1px #000',
+    'font-weight': 'normal'
+  }
+  danmaku = new Danmaku({
+    container: videoContainer.value!,
+    media: videoEl.value!,
+    comments: [
+      {
+        text: '弹幕',
+        mode: 'rtl',
+        time: 1,
+        style: defaultStyle
+      }
+    ]
+  })
+}
+
+async function loadDanmaku () {
+  const defaultStyle = {
+    'font-family': 'SimHei, Arial, Helvetica, sans-serif',
+    fontSize: '30px',
+    color: '#ffffff',
+    textShadow: '-1px -1px #000, -1px 1px #000, 1px -1px #000, 1px 1px #000',
+    'font-weight': 'normal'
+  }
+
+  function toColor (num: number) {
+    return '#' + num.toString(16)
+  }
+
+  const cid = currentItem.value!.cid
+  danmakuCount.value = 0
+
+  for (let i = 1; ;i++) { 
+    let res = await axios.get('/api/dm-seg', { params: {
+      cid,
+      segment_index: i
+    }})
+
+    const dms = res.data as DanmakuElem[]
+
+    if (dms.length === 0) {
+      break
+    }
+
+    dms.forEach(item => {
+      let mode = 'rtl'
+      if (item.mode === 4) {
+        mode = 'bottom'
+      } else if (item.mode === 5) {
+        mode = 'top'
+      }
+
+      const color = toColor(item.color)
+
+      danmaku.emit({
+        text: item.content,
+        mode: mode as any,
+        time: item.progress / 1000,
+        style: {...defaultStyle, color}
+      })
+    })
+
+    danmakuCount.value += dms.length
+  }
 }
 
 function updateVideoState () {
@@ -168,6 +271,29 @@ function updateVideoStateLoop () {
   }
 }
 
+function toggleFullscreen () {
+  try { 
+    videoContainer.value!.requestFullscreen()
+  } catch {
+    (videoContainer.value! as any).webkitRequestFullscreen()
+  }
+}
+
+function resizeContainer () {
+  danmaku.resize()
+}
+
+async function videoResize (e: Event) {
+  const videoElv = e.target as HTMLVideoElement
+  if (videoElv) {
+    videoSize.value = {
+      width: videoElv.videoWidth,
+      height: videoElv.videoHeight
+    }
+    statics.resolution = `${videoElv.videoWidth} x ${videoElv.videoHeight}`
+  }
+}
+
 updateVideoStateLoop()
 
 watch(perferCodec, (newValue) => {
@@ -180,9 +306,7 @@ onMounted(() => {
     player = dashjs.MediaPlayer().create()
     player.initialize(videoEl.value)
 
-    videoElv.addEventListener('resize', () => {
-      statics.resolution = `${videoElv.videoWidth} x ${videoElv.videoHeight}`
-    })
+    initDanmaku()
   }
 })
 
@@ -214,7 +338,26 @@ function wait (ms: number) {
   margin-left: 1em;
   display: inline-block;
 }
-video {
-  width: 40vw;
+.videoContainer {
+  width: 50vw;
+  height: 65vh;
+  position: relative;
+}
+.videoContainer:fullscreen {
+  width: 100vw;
+  height: 100vh;
+}
+.videoContainer:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+}
+.videoContainer video {
+  width: 100%;
+  height: auto;
+  position: absolute;
+
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 </style>

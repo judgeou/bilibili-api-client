@@ -3,10 +3,10 @@ import * as util from 'util'
 import * as express from 'express'
 import { create } from 'xmlbuilder2'
 import * as fs from 'fs-extra'
-import { getVideoListAll, request_playurl } from './bilibili-api'
+import { getVideoListAll, request_playurl, request_dm } from './bilibili-api'
 import { getAuthedApi } from './index-api'
 import { dandanApi } from './dandan-api'
-import { streamCodecCopy, wait } from './toolkit'
+import { streamCodecCopy, toBoolean, wait } from './toolkit'
 
 const pipeline = util.promisify(stream.pipeline);
 
@@ -103,7 +103,7 @@ app.get('/api/get-mp4/:filename', async (req, res) => {
 app.get('/api/get-video-list', async (req, res) => {
   const { url, useProxy, proxyUrl } = req.query
   try {
-    const videoList = await getVideoListAll(await apiAwait, url, Boolean(useProxy) ? proxyUrl : undefined)
+    const videoList = await getVideoListAll(await apiAwait, url, toBoolean(useProxy) ? proxyUrl : undefined)
 
     res.json(videoList)
   } catch (error) {
@@ -114,7 +114,7 @@ app.get('/api/get-video-list', async (req, res) => {
 app.get('/api/request-playurl', async (req, res) => {
   const { bvid, cid, useProxy, proxyUrl } = req.query
   const fnval = 4048
-  const playurlData = await request_playurl(await apiAwait, { bvid, cid, fnval }, Boolean(useProxy) ? proxyUrl : undefined)
+  const playurlData = await request_playurl(await apiAwait, { bvid, cid, fnval }, toBoolean(useProxy) ? proxyUrl : undefined)
 
   res.json(playurlData)
 })
@@ -217,6 +217,13 @@ app.get('/api/stream', async (req, res) => {
   pipeline(res1.data, res).catch(err => {
     console.error(err)
   })
+})
+
+app.get('/api/dm-seg', async (req, res) => {
+  const { cid, segment_index } = req.query
+  const dms = await request_dm(await apiAwait, { oid: cid, type: 1, segment_index })
+
+  res.json(dms)
 })
 
 app.listen(PORT, '0.0.0.0', () => {
