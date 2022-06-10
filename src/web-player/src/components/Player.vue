@@ -6,12 +6,6 @@
     <h2 v-if="videoList.title">{{ videoList.title }}</h2>
 
     <div>
-      <div v-for="page in videoList.list" @click="playPage(page)" class="page-item" :class="{ 'selected': currentItem === page }">
-        {{ `${page.page}. ${page.title}` }}
-      </div>
-    </div>
-
-    <div>
       视频编码：
       <select v-model="perferCodec">
         <option :value="7">avc</option>
@@ -30,11 +24,20 @@
       <button @click="toggleFullscreen">全屏</button>
     </div>
 
-    <div ref="videoContainer" class="videoContainer" @fullscreenchange="resizeContainer" @webkitfullscreenchange="resizeContainer">
-      <video ref="videoEl" autoplay preload="none" controls="true"
-        @resize="videoResize">
-      </video>
+    <div class="row">
+      <div ref="videoContainer" class="video-container" @fullscreenchange="resizeContainer" @webkitfullscreenchange="resizeContainer">
+        <video ref="videoEl" autoplay preload="none" controls="true"
+          @resize="videoResize">
+        </video>
+      </div>
+
+      <div class="page-list row row-column">
+        <div v-for="page in videoList.list" @click="playPage(page)" class="page-item" :class="{ 'selected': currentItem === page }">
+          {{ `${page.page}. ${page.title}` }}
+        </div>
+      </div>
     </div>
+
   </div>
 </template>
 
@@ -322,12 +325,18 @@ function wait (ms: number) {
 </script>
 
 <style scoped>
+.page-list {
+  justify-content: space-between;
+}
 .page-item {
   padding: 0.5em;
-  border: 2px solid #007AFF;
+  border: 2px solid gray;
   margin-left: 1em;
   cursor: pointer;
   display: inline-block;
+}
+.page-item:hover {
+  border: 2px solid rgb(41, 90, 213);
 }
 .page-item.selected {
   border: 2px solid #d8719c;
@@ -338,20 +347,26 @@ function wait (ms: number) {
   margin-left: 1em;
   display: inline-block;
 }
-.videoContainer {
+.row {
+  display: flex;
+}
+.row.row-column {
+  flex-direction: column;
+}
+.video-container {
   width: 50vw;
   height: 65vh;
   position: relative;
 }
-.videoContainer:fullscreen {
+.video-container:fullscreen {
   width: 100vw;
   height: 100vh;
 }
-.videoContainer:-webkit-full-screen {
+.video-container:-webkit-full-screen {
   width: 100vw;
   height: 100vh;
 }
-.videoContainer video {
+.video-container video {
   width: 100%;
   height: auto;
   position: absolute;
