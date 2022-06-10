@@ -59,7 +59,7 @@ API_PROXY_HOST=api.your-bilibili-proxy.com
 
 提供了一个页面可以直接看哔哩哔哩的视频，需要运行一个 node 服务，用来代理请求。
 
-![](./images/2022-06-01-17-17-09.png)
+![](./images/2022-06-10-15-38-59.png)
 
 此外，[dan-player.html](./src/web-player/dan-player.html) 可以播放本地视频，并且请求 弹弹play 的api获得弹幕
 
