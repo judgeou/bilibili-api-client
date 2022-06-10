@@ -1,21 +1,23 @@
-import { AxiosInstance } from 'axios'
+import axios, { AxiosInstance } from 'axios'
 import * as http from 'http'
 import { AddressInfo } from 'net'
 import * as fs from 'fs-extra'
 import * as path from 'path'
-import * as open from 'open'
 import * as stream from 'stream'
 import * as util from 'util'
 import * as inquirer from 'inquirer'
-import { NavResponse, ViewResponse, PlayurlResponse, SeasonResponse, RoomInitResponse, RoomPlayurlResponse, VideoInfo, PlayurlData, DashData, DurlData, getLoginInfoResponse, getLoginUrlResponse, VideoItem } from './bilibili-api-type'
+import { NavResponse, ViewResponse, PlayurlResponse, SeasonResponse, RoomInitResponse, RoomPlayurlResponse, VideoInfo, PlayurlData, DashData, DurlData, DmSegMobileReply, DanmakuElem } from './bilibili-api-type'
 import { mergeMedia, playMedia, printOneLine, wait, questionAsync, isFFMPEGInstalled, formatDate, printDownloadInfoLoop } from './toolkit'
 import { resolve } from 'path'
 import { config } from 'dotenv'
+import * as protobuf from 'protobufjs'
 import { jsonSubtitleToAss } from './subtitle'
 
 config()
 
 const pipeline = util.promisify(stream.pipeline);
+
+const dmProtoAwait = protobuf.load(resolve(__dirname, './dm.proto'))
 
 const CODECID_AVC = 7
 const CODECID_HEVC = 12
@@ -40,6 +42,10 @@ const api_playurl = API_PROXY_HOST ? `https://${API_PROXY_HOST}/x/player/playurl
 const api_season = API_PROXY_HOST ? `https://${API_PROXY_HOST}/pgc/view/web/season` : 'https://api.bilibili.com/pgc/view/web/season'
 const api_room_init = 'https://api.live.bilibili.com/room/v1/Room/room_init'
 const api_room_playurl = 'https://api.live.bilibili.com/room/v1/Room/playUrl'
+
+function makeProxyUrl (url: string, proxyUrl: string) {
+  return url.replace('api.bilibili.com', proxyUrl)
+}
 
 function isbvid (str: string) {
   return /^BV\w{10}$/.test(str)
@@ -85,6 +91,18 @@ function bilibiliUrlToLiveid (url: string) {
   }
 }
 
+async function request_dm (api: AxiosInstance, params: { oid: string, type: number, segment_index: number }): Promise<DanmakuElem[]> {
+  try {
+    const res = await api.get('http://api.bilibili.com/x/v2/dm/web/seg.so', { params, responseType: 'arraybuffer' })
+    const t = (await dmProtoAwait).lookupTypeOrEnum('bilibili.community.service.dm.v1.DmSegMobileReply')
+    const msg = t.decode(res.data)
+    const obj = t.toObject(msg) as DmSegMobileReply
+    return obj.elems
+  } catch {
+    return []
+  }
+}
+
 async function request_nav (api: AxiosInstance) {
   const res1 = await api.get(api_nav)
   const data2 = res1.data as NavResponse
@@ -113,9 +131,9 @@ async function request_playurl (api: AxiosInstance, param: {
   cid: number,
   qn?: number,
   fnval?: number
-}) {
+}, proxyUrl: string = null) {
   const params = Object.assign({ qn: 112, fnval: 0, fnver: 0, fourk: 1 }, param)
-  const res1 = await api.get(api_playurl, { params })
+  const res1 = await api.get(makeProxyUrl(api_playurl, proxyUrl), { params })
   const data1 = res1.data as PlayurlResponse
 
   if (data1.code === 0) {
@@ -125,8 +143,8 @@ async function request_playurl (api: AxiosInstance, param: {
   }
 }
 
-async function request_season (api: AxiosInstance, params: { ep_id?: number, season_id?: number }) {
-  const res1 = await api.get(api_season, { params })
+async function request_season (api: AxiosInstance, params: { ep_id?: number, season_id?: number }, proxyUrl: string = null) {
+  const res1 = await api.get(proxyUrl ? makeProxyUrl(api_season, proxyUrl) : api_season, { params })
   const data1 = res1.data as SeasonResponse
 
   if (data1.code === 0) {
@@ -202,7 +220,7 @@ async function downloadLive (api: AxiosInstance, url: string) {
   }
 }
 
-async function getVideoListAll (api: AxiosInstance, url: string) : Promise<VideoInfo> {
+async function getVideoListAll (api: AxiosInstance, url: string, proxyUrl: string = null) : Promise<VideoInfo> {
   let bvid: string
   let result: VideoInfo = {
     title: '',
@@ -219,7 +237,7 @@ async function getVideoListAll (api: AxiosInstance, url: string) : Promise<Video
       const season_id = bilibiliUrlToSeasonId(url) ? Number(bilibiliUrlToSeasonId(url)) : null
 
       if (epid || season_id) {
-        const seasonData = await request_season(api, { ep_id: epid, season_id })
+        const seasonData = await request_season(api, { ep_id: epid, season_id }, proxyUrl)
         const { episodes } = seasonData
         result.title = seasonData.season_title
 
@@ -463,6 +481,7 @@ export {
   request_nav,
   request_view,
   request_playurl,
+  request_dm,
 
   downloadLive,
   downloadVideo,
