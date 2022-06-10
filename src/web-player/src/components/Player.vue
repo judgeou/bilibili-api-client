@@ -1,5 +1,18 @@
 <template>
   <div>
+    <div v-if="loginUrlInfo && navInfo?.data?.isLogin === false">
+      {{ scanMsg }}
+      <br>
+      <img v-if="qrcodeBase64" :src="qrcodeBase64" />
+    </div>
+
+    <div v-if="navInfo?.data?.isLogin">
+      <b>{{ navInfo!.data!.uname }}</b>
+      <span v-if="navInfo!.data!.vipType === 1" style="color: red;">(大会员)</span>
+      <span v-if="navInfo!.data!.vipType === 2" style="color: red;">(年度大会员)</span>
+    </div>
+
+    <button v-if="navInfo?.code !== 0" @click="doLogin">登陆</button>
     输入哔哩哔哩网址：<input type="text" style="width: 30em;" v-model="inputUrl"> <button @click="playUrl">播放</button>
     <label> <input type="checkbox" v-model="useProxy" /> 使用代理 </label>
     <input type="text" v-if="useProxy" placeholder="填写代理地址" v-model="proxyUrl" />
@@ -49,7 +62,9 @@ declare var dashjs: any
 import { ref, reactive, nextTick, onMounted, onBeforeUnmount, watch, computed } from 'vue'
 import axios from 'axios'
 import Danmaku from 'danmaku'
-import { VideoInfo, VideoItem, PlayurlData, DanmakuElem } from '../../../bilibili-api-type'
+// @ts-ignore
+import * as QRCode from 'qrcode'
+import { VideoInfo, VideoItem, PlayurlData, DanmakuElem, NavResponse, getLoginUrlResponse, getLoginInfoResponse } from '../../../bilibili-api-type'
 
 const CODECID_AVC = 7
 const CODECID_HEVC = 12
@@ -88,6 +103,10 @@ let danmakuCount = ref(0)
 let player: any
 let isRunning = true
 let danmaku: Danmaku
+let navInfo = ref<NavResponse>()
+let loginUrlInfo = ref<getLoginUrlResponse>()
+let qrcodeBase64 = ref('')
+let scanMsg = ref('')
 
 const statics = reactive({
   bufferLevel: '',
@@ -108,6 +127,48 @@ const videoContainerSize = computed(() => {
 })
 
 /* Methods */
+async function wait (ms: number) {
+  return new Promise(resolve => {
+    setTimeout(resolve, ms)
+  })
+}
+
+async function doLogin () {
+  const res1 = await axios.get('/api/get-login-url')
+  const data1 = res1.data as getLoginUrlResponse
+  loginUrlInfo.value = data1
+
+  if (data1.code === 0) {
+    const scanUrl = data1.data.url
+    QRCode.toDataURL(scanUrl, (err: any, url: string) => {
+      qrcodeBase64.value = url
+    })
+
+    for(let loginInfo: any;;) {
+      const res2 = await axios.get('/api/get-login-info', { params: { oauthKey: data1.data.oauthKey } })
+      loginInfo = res2.data
+
+      console.log(loginInfo)
+
+      if (loginInfo.data === -1 || loginInfo.data === -2) { // -1：密钥错误 -2：密钥超时
+        return null
+      } else if (loginInfo.data === -4) { // -4：未扫描 -5 未确认
+        scanMsg.value = '请使用哔哩哔哩APP扫码登陆'
+      } else if (loginInfo.data === -5) {
+        scanMsg.value = '等待确认'
+      } else { // obj: 成功
+        const res = await axios.get('/api/nav')
+        navInfo.value = res.data
+
+        return
+      }
+
+      await wait(1000)
+    }
+  }
+  
+}
+
 async function playUrl () {
   const url = inputUrl.value
   let { data } = await axios.get('/api/get-video-list', { params: {
@@ -261,19 +322,6 @@ async function loadDanmaku () {
   }
 }
 
-function updateVideoState () {
-  if (player) {
-
-  }
-}
-
-function updateVideoStateLoop () {
-  if (isRunning) {
-    updateVideoState()
-    setTimeout(updateVideoStateLoop, 1000)
-  }
-}
-
 function toggleFullscreen () {
   try { 
     videoContainer.value!.requestFullscreen()
@@ -297,13 +345,15 @@ async function videoResize (e: Event) {
   }
 }
 
-updateVideoStateLoop()
-
 watch(perferCodec, (newValue) => {
   localStorage.setItem('BILIBILI_PLAYER_PERFER_CODEC', newValue.toString())
 })
 
-onMounted(() => {
+onMounted(async () => {
+  {
+    const res = await axios.get('/api/nav')
+    navInfo.value = res.data
+  }
   const videoElv = videoEl.value
   if (videoElv) {
     player = dashjs.MediaPlayer().create()
@@ -317,11 +367,6 @@ onBeforeUnmount(() => {
   isRunning = false
 })
 
-function wait (ms: number) {
-  return new Promise(resolve => {
-    setTimeout(resolve, ms)
-  })
-}
 </script>
 
 <style scoped>

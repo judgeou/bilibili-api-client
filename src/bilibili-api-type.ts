@@ -25,7 +25,8 @@ export interface NavResponse {
       next_exp: number,
     },
     money: number,
-    uname: string
+    uname: string,
+    vipType: number,
   }
 }
 

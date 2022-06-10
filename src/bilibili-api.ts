@@ -132,14 +132,19 @@ async function request_playurl (api: AxiosInstance, param: {
   qn?: number,
   fnval?: number
 }, proxyUrl: string = null) {
-  const params = Object.assign({ qn: 112, fnval: 0, fnver: 0, fourk: 1 }, param)
-  const res1 = await api.get(makeProxyUrl(api_playurl, proxyUrl), { params })
-  const data1 = res1.data as PlayurlResponse
+  try {
+    const params = Object.assign({ qn: 112, fnval: 0, fnver: 0, fourk: 1 }, param)
+    const res1 = await api.get(proxyUrl ? makeProxyUrl(api_playurl, proxyUrl) : api_playurl, { params })
+    const data1 = res1.data as PlayurlResponse
 
-  if (data1.code === 0) {
-    return data1.data
-  } else {
-    throw Error(data1.message)
+    if (data1.code === 0) {
+      return data1.data
+    } else {
+      throw Error(data1.message)
+    }
+  } catch (err) {
+    console.error(err)
+    throw Error(err)
   }
 }
 

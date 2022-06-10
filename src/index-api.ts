@@ -46,6 +46,16 @@ http.interceptors.request.use(config => {
   return config
 })
 
+function getAnonymousApi () {
+  return axios.create({
+    headers: {
+      referer,
+      'user-agent': userAgent,
+      'accept-language': acceptLanguage
+    }
+  })
+}
+
 async function getAuthedApi () {
   try {
     await loadCookie()
@@ -178,6 +188,7 @@ async function main () {
 }
 
 export {
+  getAnonymousApi,
   getAuthedApi,
   main
 }
