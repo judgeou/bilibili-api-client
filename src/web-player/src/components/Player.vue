@@ -67,7 +67,7 @@ let currentPage = ref<PlayurlData>()
 let perferCodec = ref(Number(perferCodecLocal))
 let currentCodec = ref(0)
 let useProxy = ref(false)
-let proxyUrl = ref('')
+let proxyUrl = ref(localStorage.getItem('BILIBILI_PLAYER_PROXY_URL') || '')
 let player: any
 let isRunning = true
 
@@ -97,6 +97,11 @@ async function playUrl () {
 
   if (videoList.value.list.length > 0) {
     playPage(videoList.value.list[0])
+  }
+
+  // 保存代理地址到 localStorage
+  if (useProxy.value) {
+    localStorage.setItem('BILIBILI_PLAYER_PROXY_URL', proxyUrl.value)
   }
 }
 
