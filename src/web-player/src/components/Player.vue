@@ -287,10 +287,10 @@ function initDanmaku () {
 
 async function loadDanmaku () {
   const defaultStyle = {
-    'font-family': 'SimHei, Arial, Helvetica, sans-serif',
+    'font-family': 'SimHei, "Microsoft JhengHei", Arial, Helvetica, sans-serif',
     fontSize: '30px',
     color: '#ffffff',
-    textShadow: '-1px -1px #000, -1px 1px #000, 1px -1px #000, 1px 1px #000',
+    textShadow: 'rgb(0, 0, 0) 1px 0px 1px, rgb(0, 0, 0) 0px 1px 1px, rgb(0, 0, 0) 0px -1px 1px, rgb(0, 0, 0) -1px 0px 1px',
     'font-weight': 'normal'
   }
 
@@ -337,11 +337,13 @@ async function loadDanmaku () {
 
 async function loadSubtitle () {
   const defaultStyle = {
-    'font-family': 'SimHei, Arial, Helvetica, sans-serif',
-    fontSize: '30px',
-    color: '#ffffff',
-    textShadow: '-1px -1px #000, -1px 1px #000, 1px -1px #000, 1px 1px #000',
-    'font-weight': 'normal'
+    'background': 'rgba(0, 0, 0, 0.4)',
+    'white-space': 'normal',
+    'padding': '2px 12px 2px 8px',
+    'border-radius': '2px',
+    'line-height': '1.5',
+    'word-wrap': 'break-word',
+    'color': 'white'
   }
 
   const res1 = await axios.get('/api/subtitles', { params: { bvid: currentItem.value!.bvid, proxyUrl: proxyUrl.value, useProxy: useProxy.value }})
