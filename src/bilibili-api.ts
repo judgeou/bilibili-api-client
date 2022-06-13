@@ -6,12 +6,12 @@ import * as path from 'path'
 import * as stream from 'stream'
 import * as util from 'util'
 import * as inquirer from 'inquirer'
-import { NavResponse, ViewResponse, PlayurlResponse, SeasonResponse, RoomInitResponse, RoomPlayurlResponse, VideoInfo, PlayurlData, DashData, DurlData, DmSegMobileReply, DanmakuElem } from './bilibili-api-type'
+import { NavResponse, ViewResponse, PlayurlResponse, SeasonResponse, RoomInitResponse, RoomPlayurlResponse, VideoInfo, PlayurlData, DashData, DurlData, DmSegMobileReply, DanmakuElem, SubtitleRaw } from './bilibili-api-type'
 import { mergeMedia, playMedia, printOneLine, wait, questionAsync, isFFMPEGInstalled, formatDate, printDownloadInfoLoop } from './toolkit'
 import { resolve } from 'path'
 import { config } from 'dotenv'
 import * as protobuf from 'protobufjs'
-import { jsonSubtitleToAss } from './subtitle'
+import { jsonSubtitleToAss, SubtitleContent, SubtitleItem } from './subtitle'
 
 config()
 
@@ -44,7 +44,11 @@ const api_room_init = 'https://api.live.bilibili.com/room/v1/Room/room_init'
 const api_room_playurl = 'https://api.live.bilibili.com/room/v1/Room/playUrl'
 
 function makeProxyUrl (url: string, proxyUrl: string) {
-  return url.replace('api.bilibili.com', proxyUrl)
+  if (proxyUrl) {
+    return url.replace('api.bilibili.com', proxyUrl)
+  } else {
+    return url
+  }
 }
 
 function isbvid (str: string) {
@@ -114,8 +118,8 @@ async function request_nav (api: AxiosInstance) {
   }
 }
 
-async function request_view (api: AxiosInstance, param: { bvid?: string, aid?: string }) {
-  const res1 = await api.get(api_view, { params: param })
+async function request_view (api: AxiosInstance, param: { bvid?: string, aid?: string },  proxyUrl: string = null) {
+  const res1 = await api.get(makeProxyUrl(api_view, proxyUrl), { params: param })
   const data1 = res1.data as ViewResponse
 
   if (data1.code === 0) {
@@ -134,7 +138,7 @@ async function request_playurl (api: AxiosInstance, param: {
 }, proxyUrl: string = null) {
   try {
     const params = Object.assign({ qn: 112, fnval: 0, fnver: 0, fourk: 1 }, param)
-    const res1 = await api.get(proxyUrl ? makeProxyUrl(api_playurl, proxyUrl) : api_playurl, { params })
+    const res1 = await api.get(makeProxyUrl(api_playurl, proxyUrl), { params })
     const data1 = res1.data as PlayurlResponse
 
     if (data1.code === 0) {
@@ -149,7 +153,7 @@ async function request_playurl (api: AxiosInstance, param: {
 }
 
 async function request_season (api: AxiosInstance, params: { ep_id?: number, season_id?: number }, proxyUrl: string = null) {
-  const res1 = await api.get(proxyUrl ? makeProxyUrl(api_season, proxyUrl) : api_season, { params })
+  const res1 = await api.get(makeProxyUrl(api_season, proxyUrl), { params })
   const data1 = res1.data as SeasonResponse
 
   if (data1.code === 0) {
@@ -417,20 +421,35 @@ async function downloadVideoDurl (api: AxiosInstance, durl: DurlData[], filename
   }
 }
 
-async function downloadSubtitle (api: AxiosInstance, bvid: string, name: string) {
-  // 处理字幕
-  const viewInfo = await request_view(api, { bvid })
+async function getSubtitleRaw (api: AxiosInstance, bvid: string, proxyUrl: string = null) {
+  const viewInfo = await request_view(api, { bvid }, proxyUrl)
+  const result: SubtitleRaw[] = []
+
   if (viewInfo.subtitle && viewInfo.subtitle.list?.length > 0) {
     const { list } = viewInfo.subtitle
 
     for (const item of list) {
       const { data } = await api.get(item.subtitle_url)
-      const filepath = path.resolve('./download', `${name}_${item.lan_doc}.ass`)
-      const assContent = jsonSubtitleToAss(data)
-      await fs.writeFile(filepath, assContent)
-
-      console.log('已下载字幕：' + filepath)
+      result.push({
+        lan: item.lan,
+        lan_doc: item.lan_doc,
+        data: data.body
+      })
     }
+  }
+
+  return result
+}
+
+async function downloadSubtitle (api: AxiosInstance, bvid: string, name: string) {
+  const subtitles = await getSubtitleRaw(api, bvid)
+
+  for (let sub of subtitles) {
+    const filepath = path.resolve('./download', `${name}_${sub.lan_doc}.ass`)
+    const assContent = jsonSubtitleToAss(sub.data)
+    await fs.writeFile(filepath, assContent)
+
+    console.log('已下载字幕：' + filepath)
   }
 }
 
@@ -491,6 +510,7 @@ export {
   downloadLive,
   downloadVideo,
   downloadSubtitle,
+  getSubtitleRaw,
   isbvid,
   bilibiliUrlToBvid,
   bilibiliUrlToEpid,

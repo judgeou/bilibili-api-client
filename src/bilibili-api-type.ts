@@ -173,6 +173,19 @@ export interface VideoInfo {
   list: VideoItem[]
 }
 
+interface SubtitleItem {
+  content: string,
+  from: number,
+  location: number,
+  to: number
+}
+
+export interface SubtitleRaw {
+  lan: string,
+  lan_doc: string,
+  data: SubtitleItem[]
+}
+
 export interface DanmakuElem {
   color: number,
   content: string,

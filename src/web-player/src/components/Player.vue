@@ -66,7 +66,7 @@ import axios from 'axios'
 import Danmaku from 'danmaku'
 // @ts-ignore
 import * as QRCode from 'qrcode'
-import { VideoInfo, VideoItem, PlayurlData, DanmakuElem, NavResponse, getLoginUrlResponse, getLoginInfoResponse } from '../../../bilibili-api-type'
+import { VideoInfo, VideoItem, PlayurlData, DanmakuElem, NavResponse, getLoginUrlResponse, SubtitleRaw } from '../../../bilibili-api-type'
 
 const CODECID_AVC = 7
 const CODECID_HEVC = 12
@@ -255,6 +255,7 @@ async function playPage (page: VideoItem) {
   player.setBufferPruningInterval(20)
   player.setJumpGaps(!0)
 
+  loadSubtitle()
   loadDanmaku()
 }
 
@@ -330,6 +331,32 @@ async function loadDanmaku () {
   }
 }
 
+async function loadSubtitle () {
+  const defaultStyle = {
+    'font-family': 'SimHei, Arial, Helvetica, sans-serif',
+    fontSize: '30px',
+    color: '#ffffff',
+    textShadow: '-1px -1px #000, -1px 1px #000, 1px -1px #000, 1px 1px #000',
+    'font-weight': 'normal'
+  }
+
+  const res1 = await axios.get('/api/subtitles', { params: { bvid: currentItem.value!.bvid, proxyUrl: proxyUrl.value }})
+  const data1 = res1.data as SubtitleRaw[]
+
+  if (data1.length > 0) {
+    const sub = data1[0]
+
+    for (let subItem of sub.data) {
+      danmaku.emit({
+        text: subItem.content,
+        mode: 'bottom',
+        time: subItem.from,
+        style: defaultStyle
+      })
+    }
+  }
+}
+
 function toggleFullscreen () {
   try { 
     videoContainer.value!.requestFullscreen()
@@ -339,7 +366,9 @@ function toggleFullscreen () {
 }
 
 function resizeContainer () {
-  danmaku.resize()
+  setTimeout(() => {
+    danmaku.resize()
+  }, 1000)
 }
 
 async function videoResize (e: Event) {

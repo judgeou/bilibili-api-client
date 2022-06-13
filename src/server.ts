@@ -4,7 +4,7 @@ import * as express from 'express'
 import * as cookieParser from 'cookie-parser'
 import { create } from 'xmlbuilder2'
 import * as fs from 'fs-extra'
-import { getVideoListAll, request_playurl, request_dm, request_nav, api_getLoginUrl, api_getLoginInfo } from './bilibili-api'
+import { getVideoListAll, request_playurl, request_dm, request_nav, api_getLoginUrl, api_getLoginInfo, getSubtitleRaw } from './bilibili-api'
 import { getAnonymousApi } from './index-api'
 import { dandanApi } from './dandan-api'
 import { streamCodecCopy, toBoolean, wait, buildPostParam } from './toolkit'
@@ -292,6 +292,13 @@ app.get('/api/dm-seg', async (req, res) => {
   const dms = await request_dm(getApiFromCookie(req), { oid: cid, type: 1, segment_index })
 
   res.json(dms)
+})
+
+app.get('/api/subtitles', async (req, res) => {
+  const { bvid, proxyUrl } = req.query
+  const subs = await getSubtitleRaw(getApiFromCookie(req), bvid, proxyUrl)
+
+  res.json(subs)
 })
 
 app.listen(PORT, '0.0.0.0', () => {
