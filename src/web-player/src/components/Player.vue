@@ -16,6 +16,8 @@
     输入哔哩哔哩网址：<input type="text" style="width: 30em;" v-model="inputUrl"> <button @click="playUrl">播放</button>
     <label> <input type="checkbox" v-model="useProxy" /> 使用代理 </label>
     <input type="text" v-if="useProxy" placeholder="填写代理地址" v-model="proxyUrl" />
+    <label><input type="checkbox" v-model="isReplaceCDN" />强制替换为国内CDN</label>
+
     <h2 v-if="videoList.title">{{ videoList.title }}</h2>
 
     <div>
@@ -102,6 +104,7 @@ let currentCodec = ref(0)
 let isBestQuality = ref(false)
 let useProxy = ref(false)
 let proxyUrl = ref(localStorage.getItem('BILIBILI_PLAYER_PROXY_URL') || '')
+let isReplaceCDN = ref(false)
 let danmakuCount = ref(0)
 let player: any
 let isRunning = true
@@ -202,7 +205,8 @@ async function playPage (page: VideoItem) {
     bvid: page.bvid,
     cid: page.cid,
     useProxy: useProxy.value,
-    proxyUrl: proxyUrl.value
+    proxyUrl: proxyUrl.value,
+    isReplaceCDN: isReplaceCDN.value
   } })
 
   if (data.error) {
@@ -232,11 +236,11 @@ async function playPage (page: VideoItem) {
     dash.video = video
 
     for (let v of video) {
-      const newUrl = `/api/stream?url=${encodeURIComponent(v.baseUrl)}`
+      const newUrl = `/api/stream?url=${encodeURIComponent(v.baseUrl)}` + (useProxy.value ? `&isReplaceHost=1` : '')
       v.baseUrl = newUrl
       v.base_url = newUrl
 
-      v.backup_url = v.backupUrl = v.backupUrl.map(item => `/api/stream?url=${encodeURIComponent(item)}`)
+      v.backup_url = v.backupUrl = v.backupUrl.map(item => `/api/stream?url=${encodeURIComponent(item)}` + (useProxy.value ? `&isReplaceHost=1` : ''))
     }
 
     for (let a of dash.audio) {
@@ -340,7 +344,7 @@ async function loadSubtitle () {
     'font-weight': 'normal'
   }
 
-  const res1 = await axios.get('/api/subtitles', { params: { bvid: currentItem.value!.bvid, proxyUrl: proxyUrl.value }})
+  const res1 = await axios.get('/api/subtitles', { params: { bvid: currentItem.value!.bvid, proxyUrl: proxyUrl.value, useProxy: useProxy.value }})
   const data1 = res1.data as SubtitleRaw[]
 
   if (data1.length > 0) {
@@ -393,6 +397,7 @@ onMounted(async () => {
   }
   const videoElv = videoEl.value
   if (videoElv) {
+    videoElv.volume = 0.5
     player = dashjs.MediaPlayer().create()
     player.initialize(videoEl.value)
 
@@ -436,8 +441,8 @@ onBeforeUnmount(() => {
   flex-direction: column;
 }
 .video-container {
-  width: 50vw;
-  height: 65vh;
+  width: 640px;
+  height: 360px;
   position: relative;
 }
 .video-container:fullscreen {

@@ -43,6 +43,30 @@ const api_season = API_PROXY_HOST ? `https://${API_PROXY_HOST}/pgc/view/web/seas
 const api_room_init = 'https://api.live.bilibili.com/room/v1/Room/room_init'
 const api_room_playurl = 'https://api.live.bilibili.com/room/v1/Room/playUrl'
 
+const uposMap = {
+  ks3: 'upos-sz-mirrorks3.bilivideo.com',
+  ks3b: 'upos-sz-mirrorks3b.bilivideo.com',
+  ks3c: 'upos-sz-mirrorks3c.bilivideo.com',
+  ks32: 'upos-sz-mirrorks32.bilivideo.com',
+  kodo: 'upos-sz-mirrorkodo.bilivideo.com',
+  kodob: 'upos-sz-mirrorkodob.bilivideo.com',
+  cos: 'upos-sz-mirrorcos.bilivideo.com',
+  cosb: 'upos-sz-mirrorcosb.bilivideo.com',
+  bos: 'upos-sz-mirrorbos.bilivideo.com',
+  wcs: 'upos-sz-mirrorwcs.bilivideo.com',
+  wcsb: 'upos-sz-mirrorwcsb.bilivideo.com',
+  /** 不限CROS, 限制UA */
+  hw: 'upos-sz-mirrorhw.bilivideo.com',
+  hwb: 'upos-sz-mirrorhwb.bilivideo.com',
+  upbda2: 'upos-sz-upcdnbda2.bilivideo.com',
+  upws: 'upos-sz-upcdnws.bilivideo.com',
+  uptx: 'upos-sz-upcdntx.bilivideo.com',
+  uphw: 'upos-sz-upcdnhw.bilivideo.com',
+  js: 'upos-tf-all-js.bilivideo.com',
+  hk: 'cn-hk-eq-bcache-01.bilivideo.com',
+  akamai: 'upos-hz-mirrorakam.akamaized.net',
+}
+
 function makeProxyUrl (url: string, proxyUrl: string) {
   if (proxyUrl) {
     return url.replace('api.bilibili.com', proxyUrl)
@@ -135,14 +159,36 @@ async function request_playurl (api: AxiosInstance, param: {
   cid: number,
   qn?: number,
   fnval?: number
-}, proxyUrl: string = null) {
+}, proxyUrl: string = null, isReplaceCDN: boolean = false) {
   try {
     const params = Object.assign({ qn: 112, fnval: 0, fnver: 0, fourk: 1 }, param)
     const res1 = await api.get(makeProxyUrl(api_playurl, proxyUrl), { params })
     const data1 = res1.data as PlayurlResponse
 
     if (data1.code === 0) {
-      return data1.data
+      const { data } = data1
+
+      if (isReplaceCDN) {
+        if (data.dash) {
+          const mainCDN = 'hw'
+          const backupCDN = ['hwb', 'upws', 'uphw', 'akamai']
+
+          for (const item of data.dash.video) {
+            item.baseUrl = item.baseUrl.replace(/:\\?\/\\?\/[^\/]+\\?\//g, `://${uposMap[mainCDN]}/`)
+            item.base_url = item.baseUrl
+
+            let backupUrl = []
+            for (let burl of item.backupUrl) {
+              backupUrl = backupUrl.concat(backupCDN.map(bcdn => burl.replace(/:\\?\/\\?\/[^\/]+\\?\//g, `://${uposMap[bcdn]}/`)))
+            }
+
+            item.backupUrl = backupUrl
+            item.backup_url = backupUrl
+          }
+        }
+      }
+
+      return data
     } else {
       throw Error(data1.message)
     }
