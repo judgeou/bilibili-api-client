@@ -24,4 +24,6 @@ build:
     - npm install
     - (cd src/web-player; npm install)
     - (cd src/web-player; npm run build)
+  only:
+    - master
 

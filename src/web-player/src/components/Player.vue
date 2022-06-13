@@ -16,6 +16,8 @@
     输入哔哩哔哩网址：<input type="text" style="width: 30em;" v-model="inputUrl"> <button @click="playUrl">播放</button>
     <label> <input type="checkbox" v-model="useProxy" /> 使用代理 </label>
     <input type="text" v-if="useProxy" placeholder="填写代理地址" v-model="proxyUrl" />
+    <label><input type="checkbox" v-model="isReplaceCDN" />强制替换为国内CDN</label>
+
     <h2 v-if="videoList.title">{{ videoList.title }}</h2>
 
     <div>
@@ -32,6 +34,15 @@
     </div>
 
     <div>
+      <button @click="loadDanmaku">重载弹幕</button>
+      弹幕占屏: 
+      <select v-model="danmakuOccupied">
+        <option>0%</option>
+        <option>25%</option>
+        <option>50%</option>
+        <option>75%</option>
+        <option>100%</option>
+      </select>
       分辨率：{{ statics.resolution }} 弹幕数量：{{ danmakuCount }}
     </div>
 
@@ -44,6 +55,9 @@
         <video ref="videoEl" autoplay preload="none" controls="true"
           @resize="videoResize">
         </video>
+
+        <div ref="danmakuContainer" class="danmaku-container" :style="{ height: danmakuOccupied }"></div>
+        <div ref="subtitleContainer" class="subtitle-container"></div>
       </div>
 
       <div class="page-list row row-column">
@@ -90,6 +104,8 @@ let videoList = ref({
 
 let videoEl = ref<HTMLVideoElement>()
 const videoContainer = ref<HTMLDivElement>()
+const danmakuContainer = ref<HTMLDivElement>()
+const subtitleContainer = ref<HTMLDivElement>()
 const videoSize = ref({
   width: 0,
   height: 0
@@ -102,10 +118,13 @@ let currentCodec = ref(0)
 let isBestQuality = ref(false)
 let useProxy = ref(false)
 let proxyUrl = ref(localStorage.getItem('BILIBILI_PLAYER_PROXY_URL') || '')
+let isReplaceCDN = ref(false)
 let danmakuCount = ref(0)
+let danmakuOccupied = ref('50%')
 let player: any
 let isRunning = true
 let danmaku: Danmaku
+let danmakuSub: Danmaku
 let navInfo = ref<NavResponse>()
 let loginUrlInfo = ref<getLoginUrlResponse>()
 let qrcodeBase64 = ref('')
@@ -120,14 +139,6 @@ const statics = reactive({
 })
 
 /** COMPUTED */
-const videoContainerSize = computed(() => {
-  const width = 576
-  const ratio = videoSize.value.width > 0 ? videoSize.value.height / videoSize.value.width : 9 / 16
-  return {
-    width,
-    height: width * ratio
-  }
-})
 
 /* Methods */
 async function wait (ms: number) {
@@ -202,7 +213,8 @@ async function playPage (page: VideoItem) {
     bvid: page.bvid,
     cid: page.cid,
     useProxy: useProxy.value,
-    proxyUrl: proxyUrl.value
+    proxyUrl: proxyUrl.value,
+    isReplaceCDN: isReplaceCDN.value
   } })
 
   if (data.error) {
@@ -232,11 +244,11 @@ async function playPage (page: VideoItem) {
     dash.video = video
 
     for (let v of video) {
-      const newUrl = `/api/stream?url=${encodeURIComponent(v.baseUrl)}`
+      const newUrl = `/api/stream?url=${encodeURIComponent(v.baseUrl)}` + (useProxy.value ? `&isReplaceHost=1` : '')
       v.baseUrl = newUrl
       v.base_url = newUrl
 
-      v.backup_url = v.backupUrl = v.backupUrl.map(item => `/api/stream?url=${encodeURIComponent(item)}`)
+      v.backup_url = v.backupUrl = v.backupUrl.map(item => `/api/stream?url=${encodeURIComponent(item)}` + (useProxy.value ? `&isReplaceHost=1` : ''))
     }
 
     for (let a of dash.audio) {
@@ -260,33 +272,25 @@ async function playPage (page: VideoItem) {
 }
 
 function initDanmaku () {
-  const defaultStyle = {
-    'font-family': 'SimHei, Arial, Helvetica, sans-serif',
-    fontSize: '30px',
-    color: '#ffffff',
-    textShadow: '-1px -1px #000, -1px 1px #000, 1px -1px #000, 1px 1px #000',
-    'font-weight': 'normal'
-  }
   danmaku = new Danmaku({
-    container: videoContainer.value!,
+    container: danmakuContainer.value!,
     media: videoEl.value!,
-    comments: [
-      {
-        text: '弹幕',
-        mode: 'rtl',
-        time: 1,
-        style: defaultStyle
-      }
-    ]
+    comments: []
+  })
+
+  danmakuSub = new Danmaku({
+    container: subtitleContainer.value!,
+    media: videoEl.value!,
+    comments: []
   })
 }
 
 async function loadDanmaku () {
   const defaultStyle = {
-    'font-family': 'SimHei, Arial, Helvetica, sans-serif',
+    'font-family': 'SimHei, "Microsoft JhengHei", Arial, Helvetica, sans-serif',
     fontSize: '30px',
     color: '#ffffff',
-    textShadow: '-1px -1px #000, -1px 1px #000, 1px -1px #000, 1px 1px #000',
+    textShadow: 'rgb(0, 0, 0) 1px 0px 1px, rgb(0, 0, 0) 0px 1px 1px, rgb(0, 0, 0) 0px -1px 1px, rgb(0, 0, 0) -1px 0px 1px',
     'font-weight': 'normal'
   }
 
@@ -296,6 +300,7 @@ async function loadDanmaku () {
 
   const cid = currentItem.value!.cid
   danmakuCount.value = 0
+  danmaku.clear()
 
   for (let i = 1; ;i++) { 
     let res = await axios.get('/api/dm-seg', { params: {
@@ -333,21 +338,25 @@ async function loadDanmaku () {
 
 async function loadSubtitle () {
   const defaultStyle = {
-    'font-family': 'SimHei, Arial, Helvetica, sans-serif',
-    fontSize: '30px',
-    color: '#ffffff',
-    textShadow: '-1px -1px #000, -1px 1px #000, 1px -1px #000, 1px 1px #000',
-    'font-weight': 'normal'
+    'background': 'rgba(0, 0, 0, 0.4)',
+    'white-space': 'normal',
+    'padding': '2px 12px 2px 8px',
+    'border-radius': '2px',
+    'line-height': '1.5',
+    'word-wrap': 'break-word',
+    'color': 'white'
   }
 
-  const res1 = await axios.get('/api/subtitles', { params: { bvid: currentItem.value!.bvid, proxyUrl: proxyUrl.value }})
+  const res1 = await axios.get('/api/subtitles', { params: { bvid: currentItem.value!.bvid, proxyUrl: proxyUrl.value, useProxy: useProxy.value }})
   const data1 = res1.data as SubtitleRaw[]
+
+  danmakuSub.clear()
 
   if (data1.length > 0) {
     const sub = data1[0]
 
     for (let subItem of sub.data) {
-      danmaku.emit({
+      danmakuSub.emit({
         text: subItem.content,
         mode: 'bottom',
         time: subItem.from,
@@ -386,6 +395,11 @@ watch(perferCodec, (newValue) => {
   localStorage.setItem('BILIBILI_PLAYER_PERFER_CODEC', newValue.toString())
 })
 
+watch(danmakuOccupied, async () => {
+  await nextTick()
+  danmaku.resize()
+})
+
 onMounted(async () => {
   {
     const res = await axios.get('/api/nav')
@@ -393,6 +407,7 @@ onMounted(async () => {
   }
   const videoElv = videoEl.value
   if (videoElv) {
+    videoElv.volume = 0.5
     player = dashjs.MediaPlayer().create()
     player.initialize(videoEl.value)
 
@@ -436,8 +451,8 @@ onBeforeUnmount(() => {
   flex-direction: column;
 }
 .video-container {
-  width: 50vw;
-  height: 65vh;
+  width: 640px;
+  height: 360px;
   position: relative;
 }
 .video-container:fullscreen {
@@ -456,5 +471,25 @@ onBeforeUnmount(() => {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+}
+.danmaku-container {
+  position: absolute;
+  width: 100%;
+  height: 50%;
+  top: 0;
+  pointer-events: none;
+}
+.danmaku-container div {
+  pointer-events: none;
+}
+.subtitle-container {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  pointer-events: none;
+}
+.subtitle-container div {
+  pointer-events: none;
 }
 </style>

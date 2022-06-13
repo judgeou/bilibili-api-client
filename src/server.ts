@@ -180,9 +180,9 @@ app.get('/api/get-video-list', async (req, res) => {
 })
 
 app.get('/api/request-playurl', async (req, res) => {
-  const { bvid, cid, useProxy, proxyUrl } = req.query
+  const { bvid, cid, useProxy, proxyUrl, isReplaceCDN } = req.query
   const fnval = 4048
-  const playurlData = await request_playurl(getApiFromCookie(req), { bvid, cid, fnval }, toBoolean(useProxy) ? proxyUrl : undefined)
+  const playurlData = await request_playurl(getApiFromCookie(req), { bvid, cid, fnval }, toBoolean(useProxy) ? proxyUrl : undefined, toBoolean(isReplaceCDN))
 
   res.json(playurlData)
 })
@@ -295,8 +295,8 @@ app.get('/api/dm-seg', async (req, res) => {
 })
 
 app.get('/api/subtitles', async (req, res) => {
-  const { bvid, proxyUrl } = req.query
-  const subs = await getSubtitleRaw(getApiFromCookie(req), bvid, proxyUrl)
+  const { bvid, useProxy, proxyUrl } = req.query
+  const subs = await getSubtitleRaw(getApiFromCookie(req), bvid, toBoolean(useProxy) ? proxyUrl : undefined)
 
   res.json(subs)
 })
