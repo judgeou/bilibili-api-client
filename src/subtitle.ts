@@ -1,10 +1,12 @@
+interface SubtitleItem {
+  content: string,
+  from: number,
+  location: number,
+  to: number
+}
+
 interface SubtitleContent {
-  body: {
-    content: string,
-    from: number,
-    location: number,
-    to: number
-  }[]
+  body: SubtitleItem[]
 }
 
 // second to hh:mm:ss
@@ -15,7 +17,7 @@ function secondToTime (second: number) {
   return `${h}:${m < 10 ? '0' + m : m}:${s < 10 ? '0' + s.toFixed(2) : s.toFixed(2)}`
 }
 
-function jsonSubtitleToAss (sub: SubtitleContent) {
+function jsonSubtitleToAss (subs: SubtitleItem[]) {
   const beginContent = 
 `[Script Info]
 ScriptType: v4.00+
@@ -30,7 +32,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
   const dialogues = []
 
-  for (const item of sub.body) {
+  for (const item of subs) {
     const timeFrom = secondToTime(item.from)
     const timeTo = secondToTime(item.to)
     const dialogue = `Dialogue: 0,${timeFrom},${timeTo},Default,,0,0,0,,${item.content}`
@@ -42,5 +44,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 }
 
 export {
-  jsonSubtitleToAss
+  jsonSubtitleToAss,
+  SubtitleContent,
+  SubtitleItem
 }

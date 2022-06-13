@@ -25,10 +25,3 @@ build:
     - (cd src/web-player; npm install)
     - (cd src/web-player; npm run build)
 
-run:
-  script:
-    - npm run start-server
-
-test_db:
-  script:
-    - npm install

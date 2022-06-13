@@ -25,7 +25,8 @@ export interface NavResponse {
       next_exp: number,
     },
     money: number,
-    uname: string
+    uname: string,
+    vipType: number,
   }
 }
 
@@ -170,6 +171,19 @@ export interface VideoItem {
 export interface VideoInfo {
   title: string
   list: VideoItem[]
+}
+
+interface SubtitleItem {
+  content: string,
+  from: number,
+  location: number,
+  to: number
+}
+
+export interface SubtitleRaw {
+  lan: string,
+  lan_doc: string,
+  data: SubtitleItem[]
 }
 
 export interface DanmakuElem {

@@ -1,22 +1,47 @@
 import * as stream from 'stream'
 import * as util from 'util'
 import * as express from 'express'
+import * as cookieParser from 'cookie-parser'
 import { create } from 'xmlbuilder2'
 import * as fs from 'fs-extra'
-import { getVideoListAll, request_playurl, request_dm } from './bilibili-api'
-import { getAuthedApi } from './index-api'
+import { getVideoListAll, request_playurl, request_dm, request_nav, api_getLoginUrl, api_getLoginInfo, getSubtitleRaw } from './bilibili-api'
+import { getAnonymousApi } from './index-api'
 import { dandanApi } from './dandan-api'
-import { streamCodecCopy, toBoolean, wait } from './toolkit'
+import { streamCodecCopy, toBoolean, wait, buildPostParam } from './toolkit'
+import { getLoginUrlResponse } from './bilibili-api-type'
 
 const pipeline = util.promisify(stream.pipeline);
 
 const app = express()
 const PORT = Number(process.env.PORT || '8080')
 
-let apiAwait = getAuthedApi()
+let apiAwait = getAnonymousApi()
 
 app.use(express.static('./src/web-player/dist'))
 app.use(express.json())
+app.use(cookieParser())
+
+function getApiFromCookie (req: any) {
+  const { BILIBILI_SITE_COOKIE } = req.cookies
+  if (BILIBILI_SITE_COOKIE) {
+    const cookieObj = JSON.parse(decodeURIComponent(BILIBILI_SITE_COOKIE))
+    const api = getAnonymousApi()
+
+    api.interceptors.request.use(config => {
+      const cookieArray = []
+      for (const key in cookieObj) {
+        cookieArray.push(`${key}=${cookieObj[key]}`)
+      }
+      const cookieStr = cookieArray.join('; ')
+      config.headers.cookie = cookieStr
+      return config
+    })
+
+    return api
+  } else {
+    return getAnonymousApi()
+  }
+}
 
 app.get(/dandan-api\/(.+)/, async (req, res) => {
   const path = req.params[0]
@@ -100,10 +125,53 @@ app.get('/api/get-mp4/:filename', async (req, res) => {
   }
 })
 
+app.get('/api/get-login-url', async (req, res) => {
+  const res1 = await (await apiAwait).get(api_getLoginUrl)
+  const loginResponse = res1.data as getLoginUrlResponse
+
+  res.json(loginResponse)
+})
+
+app.get('/api/get-login-info', async (req, res) => {
+  const { oauthKey } = req.query
+  const res1 = await (await apiAwait).post(api_getLoginInfo, buildPostParam({ oauthKey }))
+  
+  if (res1.data.code === 0) {
+    const set_cookie = res1.headers['set-cookie']
+    if (set_cookie?.length > 0) {
+      let cookieObj = {}
+      for (const newCookie of set_cookie) {
+        const cookie = newCookie.split(';')[0]
+        const key = cookie.split('=')[0]
+        const value = cookie.split('=')[1]
+        cookieObj[key] = value
+      }
+
+      res.cookie('BILIBILI_SITE_COOKIE', encodeURIComponent(JSON.stringify(cookieObj)), {
+        expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 15),
+        httpOnly: true
+      })
+    }
+    res.json(res1.data)
+  } else {
+    res.json(res1.data)
+  }
+})
+
+app.get('/api/nav', async (req, res) => {
+  try {
+    const navRes = await request_nav(getApiFromCookie(req))
+
+    res.json(navRes)
+  } catch (err) {
+    res.json(err)
+  }
+})
+
 app.get('/api/get-video-list', async (req, res) => {
   const { url, useProxy, proxyUrl } = req.query
   try {
-    const videoList = await getVideoListAll(await apiAwait, url, toBoolean(useProxy) ? proxyUrl : undefined)
+    const videoList = await getVideoListAll(getApiFromCookie(req), url, toBoolean(useProxy) ? proxyUrl : undefined)
 
     res.json(videoList)
   } catch (error) {
@@ -114,7 +182,7 @@ app.get('/api/get-video-list', async (req, res) => {
 app.get('/api/request-playurl', async (req, res) => {
   const { bvid, cid, useProxy, proxyUrl } = req.query
   const fnval = 4048
-  const playurlData = await request_playurl(await apiAwait, { bvid, cid, fnval }, toBoolean(useProxy) ? proxyUrl : undefined)
+  const playurlData = await request_playurl(getApiFromCookie(req), { bvid, cid, fnval }, toBoolean(useProxy) ? proxyUrl : undefined)
 
   res.json(playurlData)
 })
@@ -221,9 +289,16 @@ app.get('/api/stream', async (req, res) => {
 
 app.get('/api/dm-seg', async (req, res) => {
   const { cid, segment_index } = req.query
-  const dms = await request_dm(await apiAwait, { oid: cid, type: 1, segment_index })
+  const dms = await request_dm(getApiFromCookie(req), { oid: cid, type: 1, segment_index })
 
   res.json(dms)
+})
+
+app.get('/api/subtitles', async (req, res) => {
+  const { bvid, proxyUrl } = req.query
+  const subs = await getSubtitleRaw(getApiFromCookie(req), bvid, proxyUrl)
+
+  res.json(subs)
 })
 
 app.listen(PORT, '0.0.0.0', () => {
