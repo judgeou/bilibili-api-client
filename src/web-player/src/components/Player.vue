@@ -34,6 +34,15 @@
     </div>
 
     <div>
+      <button @click="loadDanmaku">重载弹幕</button>
+      弹幕占屏: 
+      <select v-model="danmakuOccupied">
+        <option>0%</option>
+        <option>25%</option>
+        <option>50%</option>
+        <option>75%</option>
+        <option>100%</option>
+      </select>
       分辨率：{{ statics.resolution }} 弹幕数量：{{ danmakuCount }}
     </div>
 
@@ -46,6 +55,9 @@
         <video ref="videoEl" autoplay preload="none" controls="true"
           @resize="videoResize">
         </video>
+
+        <div ref="danmakuContainer" class="danmaku-container" :style="{ height: danmakuOccupied }"></div>
+        <div ref="subtitleContainer" class="subtitle-container"></div>
       </div>
 
       <div class="page-list row row-column">
@@ -92,6 +104,8 @@ let videoList = ref({
 
 let videoEl = ref<HTMLVideoElement>()
 const videoContainer = ref<HTMLDivElement>()
+const danmakuContainer = ref<HTMLDivElement>()
+const subtitleContainer = ref<HTMLDivElement>()
 const videoSize = ref({
   width: 0,
   height: 0
@@ -106,9 +120,11 @@ let useProxy = ref(false)
 let proxyUrl = ref(localStorage.getItem('BILIBILI_PLAYER_PROXY_URL') || '')
 let isReplaceCDN = ref(false)
 let danmakuCount = ref(0)
+let danmakuOccupied = ref('50%')
 let player: any
 let isRunning = true
 let danmaku: Danmaku
+let danmakuSub: Danmaku
 let navInfo = ref<NavResponse>()
 let loginUrlInfo = ref<getLoginUrlResponse>()
 let qrcodeBase64 = ref('')
@@ -123,14 +139,6 @@ const statics = reactive({
 })
 
 /** COMPUTED */
-const videoContainerSize = computed(() => {
-  const width = 576
-  const ratio = videoSize.value.width > 0 ? videoSize.value.height / videoSize.value.width : 9 / 16
-  return {
-    width,
-    height: width * ratio
-  }
-})
 
 /* Methods */
 async function wait (ms: number) {
@@ -264,24 +272,16 @@ async function playPage (page: VideoItem) {
 }
 
 function initDanmaku () {
-  const defaultStyle = {
-    'font-family': 'SimHei, Arial, Helvetica, sans-serif',
-    fontSize: '30px',
-    color: '#ffffff',
-    textShadow: '-1px -1px #000, -1px 1px #000, 1px -1px #000, 1px 1px #000',
-    'font-weight': 'normal'
-  }
   danmaku = new Danmaku({
-    container: videoContainer.value!,
+    container: danmakuContainer.value!,
     media: videoEl.value!,
-    comments: [
-      {
-        text: '弹幕',
-        mode: 'rtl',
-        time: 1,
-        style: defaultStyle
-      }
-    ]
+    comments: []
+  })
+
+  danmakuSub = new Danmaku({
+    container: subtitleContainer.value!,
+    media: videoEl.value!,
+    comments: []
   })
 }
 
@@ -300,6 +300,7 @@ async function loadDanmaku () {
 
   const cid = currentItem.value!.cid
   danmakuCount.value = 0
+  danmaku.clear()
 
   for (let i = 1; ;i++) { 
     let res = await axios.get('/api/dm-seg', { params: {
@@ -349,11 +350,13 @@ async function loadSubtitle () {
   const res1 = await axios.get('/api/subtitles', { params: { bvid: currentItem.value!.bvid, proxyUrl: proxyUrl.value, useProxy: useProxy.value }})
   const data1 = res1.data as SubtitleRaw[]
 
+  danmakuSub.clear()
+
   if (data1.length > 0) {
     const sub = data1[0]
 
     for (let subItem of sub.data) {
-      danmaku.emit({
+      danmakuSub.emit({
         text: subItem.content,
         mode: 'bottom',
         time: subItem.from,
@@ -390,6 +393,11 @@ async function videoResize (e: Event) {
 
 watch(perferCodec, (newValue) => {
   localStorage.setItem('BILIBILI_PLAYER_PERFER_CODEC', newValue.toString())
+})
+
+watch(danmakuOccupied, async () => {
+  await nextTick()
+  danmaku.resize()
 })
 
 onMounted(async () => {
@@ -463,5 +471,25 @@ onBeforeUnmount(() => {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+}
+.danmaku-container {
+  position: absolute;
+  width: 100%;
+  height: 50%;
+  top: 0;
+  pointer-events: none;
+}
+.danmaku-container div {
+  pointer-events: none;
+}
+.subtitle-container {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  pointer-events: none;
+}
+.subtitle-container div {
+  pointer-events: none;
 }
 </style>
