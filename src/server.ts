@@ -283,8 +283,6 @@ app.get('/api/stream', async (req, res) => {
 
     res.status(res1.status)
 
-    console.log(url)
-
     pipeline(res1.data, res).catch(err => {
       console.error(err)
     })

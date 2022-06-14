@@ -59,7 +59,9 @@
         </video>
 
         <div ref="danmakuContainer" class="danmaku-container" :style="{ height: danmakuOccupied }"></div>
-        <div ref="subtitleContainer" class="subtitle-container"></div>
+        <div ref="subtitleContainer" class="subtitle-container">
+          <Subtitle ref="subtitleComponent"></Subtitle>
+        </div>
       </div>
 
       <div class="page-list row row-column">
@@ -83,6 +85,7 @@ import Danmaku from 'danmaku'
 // @ts-ignore
 import * as QRCode from 'qrcode'
 import { VideoInfo, VideoItem, PlayurlData, DanmakuElem, NavResponse, getLoginUrlResponse, SubtitleRaw } from '../../../bilibili-api-type'
+import Subtitle from './Subtitle.vue'
 
 const CODECID_AVC = 7
 const CODECID_HEVC = 12
@@ -108,6 +111,7 @@ let videoEl = ref<HTMLVideoElement>()
 const videoContainer = ref<HTMLDivElement>()
 const danmakuContainer = ref<HTMLDivElement>()
 const subtitleContainer = ref<HTMLDivElement>()
+const subtitleComponent = ref<InstanceType<typeof Subtitle>>()
 const videoSize = ref({
   width: 0,
   height: 0
@@ -127,7 +131,7 @@ let danmakuHide = ref(false)
 let player: any
 let isRunning = true
 let danmaku: Danmaku
-let danmakuSub: Danmaku
+
 let navInfo = ref<NavResponse>()
 let loginUrlInfo = ref<getLoginUrlResponse>()
 let qrcodeBase64 = ref('')
@@ -280,12 +284,6 @@ function initDanmaku () {
     media: videoEl.value!,
     comments: []
   })
-
-  danmakuSub = new Danmaku({
-    container: subtitleContainer.value!,
-    media: videoEl.value!,
-    comments: []
-  })
 }
 
 async function loadDanmaku () {
@@ -340,34 +338,12 @@ async function loadDanmaku () {
 }
 
 async function loadSubtitle () {
-  const defaultStyle = {
-    'font-size': '27px',
-    'background': 'rgba(0, 0, 0, 0.4)',
-    'white-space': 'normal',
-    'padding': '2px 12px 2px 8px',
-    'border-radius': '2px',
-    'line-height': '1.5',
-    'word-wrap': 'break-word',
-    'color': 'white'
-  }
-
   const res1 = await axios.get('/api/subtitles', { params: { bvid: currentItem.value!.bvid, proxyUrl: proxyUrl.value, useProxy: useProxy.value }})
   const data1 = res1.data as SubtitleRaw[]
 
-  danmakuSub.clear()
+  subtitleComponent.value?.clear()
 
-  if (data1.length > 0) {
-    const sub = data1[0]
-
-    for (let subItem of sub.data) {
-      danmakuSub.emit({
-        text: subItem.content,
-        mode: 'bottom',
-        time: subItem.from,
-        style: defaultStyle
-      })
-    }
-  }
+  subtitleComponent.value?.init(data1, videoEl.value!)
 }
 
 function toggleFullscreen () {
@@ -381,7 +357,7 @@ function toggleFullscreen () {
 function resizeContainer () {
   setTimeout(() => {
     danmaku.resize()
-    danmakuSub.resize()
+    // danmakuSub.resize()
   }, 1000)
 }
 
@@ -501,6 +477,7 @@ onBeforeUnmount(() => {
   height: 100%;
   top: 0;
   pointer-events: none;
+  text-align: center;
 }
 .subtitle-container div {
   pointer-events: none;
