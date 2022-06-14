@@ -35,6 +35,8 @@
 
     <div>
       <button @click="loadDanmaku">重载弹幕</button>
+      <button v-if="danmakuHide === true" @click="danmakuHide = false">显示弹幕</button>
+      <button v-if="danmakuHide === false" @click="danmakuHide = true">隐藏弹幕</button>
       弹幕占屏: 
       <select v-model="danmakuOccupied">
         <option>0%</option>
@@ -92,7 +94,7 @@ const CODEC_MAP = {
   [CODECID_AV1.toString()]: 'av1'
 }
 
-const inputUrl = ref('https://www.bilibili.com/bangumi/play/ss41492/')
+const inputUrl = ref('https://www.bilibili.com/video/BV1z54y1Z7pr')
 
 let perferCodecLocal = localStorage.getItem('BILIBILI_PLAYER_PERFER_CODEC') || 7
 
@@ -121,6 +123,7 @@ let proxyUrl = ref(localStorage.getItem('BILIBILI_PLAYER_PROXY_URL') || '')
 let isReplaceCDN = ref(false)
 let danmakuCount = ref(0)
 let danmakuOccupied = ref('50%')
+let danmakuHide = ref(false)
 let player: any
 let isRunning = true
 let danmaku: Danmaku
@@ -338,6 +341,7 @@ async function loadDanmaku () {
 
 async function loadSubtitle () {
   const defaultStyle = {
+    'font-size': '27px',
     'background': 'rgba(0, 0, 0, 0.4)',
     'white-space': 'normal',
     'padding': '2px 12px 2px 8px',
@@ -377,6 +381,7 @@ function toggleFullscreen () {
 function resizeContainer () {
   setTimeout(() => {
     danmaku.resize()
+    danmakuSub.resize()
   }, 1000)
 }
 
@@ -398,6 +403,14 @@ watch(perferCodec, (newValue) => {
 watch(danmakuOccupied, async () => {
   await nextTick()
   danmaku.resize()
+})
+
+watch(danmakuHide, newValue => {
+  if (newValue) {
+    danmaku.hide()
+  } else {
+    danmaku.show()
+  }
 })
 
 onMounted(async () => {

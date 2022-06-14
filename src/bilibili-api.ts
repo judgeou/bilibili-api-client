@@ -171,9 +171,22 @@ async function request_playurl (api: AxiosInstance, param: {
       if (isReplaceCDN) {
         if (data.dash) {
           const mainCDN = 'hw'
-          const backupCDN = ['hwb', 'upws', 'uphw', 'akamai']
+          const backupCDN = ['kodo', 'cos']
 
           for (const item of data.dash.video) {
+            item.baseUrl = item.baseUrl.replace(/:\\?\/\\?\/[^\/]+\\?\//g, `://${uposMap[mainCDN]}/`)
+            item.base_url = item.baseUrl
+
+            let backupUrl = []
+            for (let burl of item.backupUrl) {
+              backupUrl = backupUrl.concat(backupCDN.map(bcdn => burl.replace(/:\\?\/\\?\/[^\/]+\\?\//g, `://${uposMap[bcdn]}/`)))
+            }
+
+            item.backupUrl = backupUrl
+            item.backup_url = backupUrl
+          }
+
+          for (const item of data.dash.audio) {
             item.baseUrl = item.baseUrl.replace(/:\\?\/\\?\/[^\/]+\\?\//g, `://${uposMap[mainCDN]}/`)
             item.base_url = item.baseUrl
 
