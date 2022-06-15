@@ -251,11 +251,13 @@ async function playPage (page: VideoItem) {
     dash.video = video
 
     for (let v of video) {
-      const newUrl = `/api/stream?url=${encodeURIComponent(v.baseUrl)}` + (useProxy.value ? `&isReplaceHost=1` : '')
+      const newUrl = `/api/stream?url=${encodeURIComponent(v.baseUrl)}`
       v.baseUrl = newUrl
       v.base_url = newUrl
 
-      v.backup_url = v.backupUrl = v.backupUrl.map(item => `/api/stream?url=${encodeURIComponent(item)}` + (useProxy.value ? `&isReplaceHost=1` : ''))
+      if (v.backupUrl) {
+        v.backup_url = v.backupUrl = v.backupUrl.map(item => `/api/stream?url=${encodeURIComponent(item)}`)
+      }
     }
 
     for (let a of dash.audio) {
@@ -263,7 +265,9 @@ async function playPage (page: VideoItem) {
       a.baseUrl = newUrl
       a.base_url = newUrl
 
-      a.backup_url = a.backupUrl = a.backupUrl.map(item => `/api/stream?url=${encodeURIComponent(item)}`)
+      if (a.backupUrl) {
+        a.backup_url = a.backupUrl = a.backupUrl.map(item => `/api/stream?url=${encodeURIComponent(item)}`)
+      }
     }
   }
 
@@ -279,6 +283,9 @@ async function playPage (page: VideoItem) {
 }
 
 function initDanmaku () {
+  if (danmaku) {
+    danmaku.destroy()
+  }
   danmaku = new Danmaku({
     container: danmakuContainer.value!,
     media: videoEl.value!,
@@ -301,7 +308,8 @@ async function loadDanmaku () {
 
   const cid = currentItem.value!.cid
   danmakuCount.value = 0
-  danmaku.clear()
+  
+  initDanmaku()
 
   for (let i = 1; ;i++) { 
     let res = await axios.get('/api/dm-seg', { params: {
