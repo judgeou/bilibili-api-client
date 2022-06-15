@@ -1,29 +1,29 @@
-# This file is a template, and might need editing before it works on your project.
-# To contribute improvements to CI/CD templates, please follow the Development guide at:
-# https://docs.gitlab.com/ee/development/cicd/templates.html
-# This specific template is located at:
-# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Nodejs.gitlab-ci.yml
+variables:
+  IMAGE_TAG: "$CI_PROJECT_PATH_SLUG:latest"
+  SERVICE_NAME: "bilibili-web-player"
+  REVIEW_URL: "https://bilibili-web-player.lanhcit.win/"
 
-# Official framework image. Look for the different tagged releases at:
-# https://hub.docker.com/r/library/node/tags/
-image: node:16
-
-# Pick zero or more services to be used on all builds.
-# Only needed when using a docker container to run your tests in.
-# Check out: http://docs.gitlab.com/ee/ci/docker/using_docker_images.html#what-is-a-service
-services:
-
-# This folder is cached between builds
-# https://docs.gitlab.com/ee/ci/yaml/index.html#cache
-cache:
-  paths:
-    - node_modules/
+stages:
+  - build
+  - deploy
 
 build:
+  stage: build
   script:
-    - npm install
-    - (cd src/web-player; npm install)
-    - (cd src/web-player; npm run build)
+    - docker build -t $IMAGE_TAG .
   only:
     - master
 
+deploy:
+  stage: deploy
+  script:
+    - docker service rm $SERVICE_NAME || true
+    - docker service create
+      --name $SERVICE_NAME
+      --network backyard
+      $IMAGE_TAG
+  environment:
+    name: staging
+    url: $REVIEW_URL
+  only:
+    - master
