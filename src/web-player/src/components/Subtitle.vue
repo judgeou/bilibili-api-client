@@ -29,6 +29,7 @@ function onMediaTimeUpdate (ev: Event) {
 function init (subtitleRaw: SubtitleRaw[], mediaEl: HTMLVideoElement) {
   subtitleData.value = subtitleRaw
   media = mediaEl
+  media.removeEventListener('timeupdate', onMediaTimeUpdate)
   media.addEventListener('timeupdate', onMediaTimeUpdate)
 }
 
