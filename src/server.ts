@@ -262,29 +262,33 @@ app.get('/api/stream', async (req, res) => {
   const secFetchSite = req.headers['sec-fetch-site']
 
   const api = await apiAwait
-  const res1 = await api.get(url, { responseType: 'stream', headers: { 
-    range: range || 'bytes=0-', 
-    'sec-fetch-dest': secFetchDest || 'empty',
-    'sec-fetch-mode': secFetchMode || 'cors',
-    'sec-fetch-site': secFetchSite || 'same-origin' 
-  }})
+  try {
+    const res1 = await api.get(url, { responseType: 'stream', headers: { 
+      range: range || 'bytes=0-', 
+      'sec-fetch-dest': secFetchDest || 'empty',
+      'sec-fetch-mode': secFetchMode || 'cors',
+      'sec-fetch-site': secFetchSite || 'same-origin' 
+    }})
 
-  function copyHeader (key: string) {
-    const value = res1.headers[key]
-    if (value) {
-      res.set(key, value)
+    function copyHeader (key: string) {
+      const value = res1.headers[key]
+      if (value) {
+        res.set(key, value)
+      }
     }
+
+    copyHeader('content-type')
+    copyHeader('content-length')
+    copyHeader('content-range')
+
+    res.status(res1.status)
+
+    pipeline(res1.data, res).catch(err => {
+      console.error(err)
+    })
+  } catch (error) {
+    console.error(error)
   }
-
-  copyHeader('content-type')
-  copyHeader('content-length')
-  copyHeader('content-range')
-
-  res.status(res1.status)
-
-  pipeline(res1.data, res).catch(err => {
-    console.error(err)
-  })
 })
 
 app.get('/api/dm-seg', async (req, res) => {
