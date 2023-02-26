@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { AxiosInstance } from 'axios'
 import * as fs from 'fs-extra'
 import * as inquirer from 'inquirer'
 import { getLoginInfoResponse, getLoginUrlResponse } from './bilibili-api-type'
@@ -112,7 +113,7 @@ async function loadCookie () {
   }
 }
 
-async function main () {
+async function main (isLoop = false) {
   let api = await getAuthedApi()
 
   if (api) {
@@ -129,59 +130,64 @@ async function main () {
     if (data2.data.isLogin) {
       console.log(`欢迎这个B友 ${data2.data.uname}! 等级: ${data2.data.level_info.current_level} 硬币: ${data2.data.money}`)
 
-      const url = await questionAsync('请输入视频、番剧、直播链接或者BV号: ')
+      do {
+        const url = await questionAsync('请输入视频、番剧、直播链接或者BV号: ')
+        await startDownload(url, api)
+      } while (isLoop)
+    }
+  }
+}
 
-      const isLive = await downloadLive(api, url)
-      if (isLive) {
-        return
-      }
+async function startDownload (url: string, api: AxiosInstance) {
+  const isLive = await downloadLive(api, url)
+  if (isLive) {
+    return
+  }
 
-      const { list: videoList, title } = await getVideoList(api, url)
-      const [ firstVideo ] = videoList
+  const { list: videoList, title } = await getVideoList(api, url)
+  const [ firstVideo ] = videoList
 
-      if (firstVideo) {
-        console.log(`视频标题: ${title}`)
+  if (firstVideo) {
+    console.log(`视频标题: ${title}`)
 
-        const fnval = await getFnval()
-        let codecid = fnval === 0 ? null : await askCodecId()
+    const fnval = await getFnval()
+    let codecid = fnval === 0 ? null : await askCodecId()
 
-        let quality: number = null
-        
-        for (const videoItem of videoList) {
-          if (quality === null) {
-            let playurlData = await request_playurl(api, { bvid: videoItem.bvid, cid: videoItem.cid, fnval })
-            const answerQuality = await inquirer.prompt(
-              {
-                type: 'rawlist',
-                name: 'quality',
-                message: '请选择视频质量',
-                choices: playurlData.accept_description.map((value, index) => {
-                  return {
-                    key: index.toString(),
-                    name: value,
-                    value: playurlData.accept_quality[index]
-                  }
-                })
+    let quality: number = null
+    
+    for (const videoItem of videoList) {
+      if (quality === null) {
+        let playurlData = await request_playurl(api, { bvid: videoItem.bvid, cid: videoItem.cid, fnval })
+        const answerQuality = await inquirer.prompt(
+          {
+            type: 'rawlist',
+            name: 'quality',
+            message: '请选择视频质量',
+            choices: playurlData.accept_description.map((value, index) => {
+              return {
+                key: index.toString(),
+                name: value,
+                value: playurlData.accept_quality[index]
               }
-            )
-            quality = answerQuality.quality
-
-            if (playurlData.quality !== quality) {
-              playurlData = await request_playurl(api, { bvid: videoItem.bvid, cid: videoItem.cid, fnval, qn: quality })
-            }
-
-            await downloadSubtitle(api, videoItem.bvid, `${title}_P${videoItem.page}_${videoItem.title}`)
-
-            const ouputFilepath = await downloadVideo(api, playurlData, `${title}_P${videoItem.page}_${videoItem.title}`, codecid)
-            console.log(`下载完成 ${ouputFilepath}`)
-          } else {
-            await downloadSubtitle(api, videoItem.bvid, `${title}_P${videoItem.page}_${videoItem.title}`)
-            
-            const playurlData = await request_playurl(api, { bvid: videoItem.bvid, cid: videoItem.cid, fnval, qn: quality })
-            const ouputFilepath = await downloadVideo(api, playurlData, `${title}_P${videoItem.page}_${videoItem.title}`, codecid)
-            console.log(`下载完成 ${ouputFilepath}`)
+            })
           }
+        )
+        quality = answerQuality.quality
+
+        if (playurlData.quality !== quality) {
+          playurlData = await request_playurl(api, { bvid: videoItem.bvid, cid: videoItem.cid, fnval, qn: quality })
         }
+
+        await downloadSubtitle(api, videoItem.bvid, `${title}_P${videoItem.page}_${videoItem.title}`)
+
+        const ouputFilepath = await downloadVideo(api, playurlData, `${title}_P${videoItem.page}_${videoItem.title}`, codecid)
+        console.log(`下载完成 ${ouputFilepath}`)
+      } else {
+        await downloadSubtitle(api, videoItem.bvid, `${title}_P${videoItem.page}_${videoItem.title}`)
+        
+        const playurlData = await request_playurl(api, { bvid: videoItem.bvid, cid: videoItem.cid, fnval, qn: quality })
+        const ouputFilepath = await downloadVideo(api, playurlData, `${title}_P${videoItem.page}_${videoItem.title}`, codecid)
+        console.log(`下载完成 ${ouputFilepath}`)
       }
     }
   }

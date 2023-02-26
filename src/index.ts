@@ -1,3 +1,3 @@
 import { main } from './index-api'
 
-main()
+main(true)
