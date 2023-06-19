@@ -445,7 +445,7 @@ async function downloadVideoDash (api: AxiosInstance, dash: DashData, filename: 
     })
   })
 
-  const outputFilepath = path.resolve('./download', `${filename.replace(/\//g, '_')}_${videos[0].codecs}.mkv`)
+  const outputFilepath = path.resolve('./download', `${filename.replace(/\//g, '_')}_${videos[0].codecs}.mp4`)
 
   const totalSize = responses.reduce((total, item) => total + Number(item.headers['content-length']), 0)
   let state = { exit: false }
